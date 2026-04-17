@@ -1,0 +1,24 @@
+:root {
+  --bg: #0f1720;
+  --panel: #141f2e;
+  --card: #1a2636;
+  --border: #1e2e42;
+  --text: #e2eaf4;
+  --muted: #6b8299;
+  --accent: #3dd6ff;
+  --win: #22c55e;
+  --draw: #eab308;
+  --loss: #ef4444;
+  --gold: #f59e0b;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+a { color: inherit; text-decoration: none; }
