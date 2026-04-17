@@ -1,6 +1,6 @@
 # Nogomet HNB Savica
 
-Statistika petkovog nogometa — Next.js + Supabase
+Statistika nogometa petkom — Next.js + Supabase
 
 ## Admin lozinka
 `savica2025`
