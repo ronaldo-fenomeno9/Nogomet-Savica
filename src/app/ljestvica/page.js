@@ -16,10 +16,24 @@ function FormDot({ r }) {
   )
 }
 
+function ResultChip({ r }) {
+  const bg = r === 'W' ? 'var(--win)' : r === 'D' ? 'var(--draw)' : 'var(--loss)'
+  const label = r === 'W' ? 'Pobjeda' : r === 'D' ? 'Neriješeno' : 'Poraz'
+  return (
+    <span style={{ background: bg, color: '#000', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 700 }}>{label}</span>
+  )
+}
+
 export default function Ljestvica() {
   const [players, setPlayers] = useState([])
   const [totalMatches, setTotalMatches] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [selectedPlayer, setSelectedPlayer] = useState(null)
+  const [playerMatches, setPlayerMatches] = useState([])
+  const [allMatches, setAllMatches] = useState([])
+  const [allMatchPlayers, setAllMatchPlayers] = useState([])
+  const [allGoals, setAllGoals] = useState([])
+  const [playerMap, setPlayerMap] = useState({})
 
   useEffect(() => { loadData() }, [])
 
@@ -27,24 +41,29 @@ export default function Ljestvica() {
     const { data: ps } = await supabase.from('players').select('*').eq('active', true)
     const { data: matches } = await supabase.from('matches').select('*').order('played_at')
     const { data: matchPlayers } = await supabase.from('match_players').select('*')
+    const { data: goals } = await supabase.from('goals').select('*')
 
     if (!ps || !matches) { setLoading(false); return }
 
+    const pMap = {}
+    ps.forEach(p => { pMap[p.id] = p.name })
+    setPlayerMap(pMap)
+    setAllMatches(matches)
+    setAllMatchPlayers(matchPlayers || [])
+    setAllGoals(goals || [])
+
     const stats = {}
-    ps.forEach(p => { stats[p.id] = { id: p.id, name: p.name, played: 0, W: 0, D: 0, L: 0, form: [], points: 0, amount: 0, attendancePct: 0 } })
+    ps.forEach(p => { stats[p.id] = { id: p.id, name: p.name, played: 0, W: 0, D: 0, L: 0, form: [] } })
 
     matches.forEach(m => {
       const black = (matchPlayers || []).filter(mp => mp.match_id === m.id && mp.team === 'crni' && !mp.is_guest).map(mp => mp.player_id)
       const white = (matchPlayers || []).filter(mp => mp.match_id === m.id && mp.team === 'bijeli' && !mp.is_guest).map(mp => mp.player_id)
-
       const apply = (pid, res) => {
         if (!stats[pid]) return
-        stats[pid].played++
-        stats[pid][res]++
+        stats[pid].played++; stats[pid][res]++
         stats[pid].form.push(res)
         if (stats[pid].form.length > 5) stats[pid].form.shift()
       }
-
       if (m.winner === 'crni') { black.forEach(p => apply(p, 'W')); white.forEach(p => apply(p, 'L')) }
       else if (m.winner === 'bijeli') { white.forEach(p => apply(p, 'W')); black.forEach(p => apply(p, 'L')) }
       else { [...black, ...white].forEach(p => apply(p, 'D')) }
@@ -68,11 +87,52 @@ export default function Ljestvica() {
     setLoading(false)
   }
 
+  function openPlayerModal(player) {
+    setSelectedPlayer(player)
+    const matchIds = allMatchPlayers
+      .filter(mp => mp.player_id === player.id && !mp.is_guest)
+      .map(mp => mp.match_id)
+
+    const played = allMatches
+      .filter(m => matchIds.includes(m.id))
+      .sort((a, b) => b.played_at.localeCompare(a.played_at))
+      .map(m => {
+        const parts = allMatchPlayers.filter(mp => mp.match_id === m.id)
+        const goalsList = allGoals.filter(g => g.match_id === m.id)
+        const onBlack = parts.some(mp => mp.player_id === player.id && mp.team === 'crni')
+        let result = 'D'
+        if (m.winner === 'crni' && onBlack) result = 'W'
+        else if (m.winner === 'bijeli' && !onBlack) result = 'W'
+        else if (m.winner === 'crni' && !onBlack) result = 'L'
+        else if (m.winner === 'bijeli' && onBlack) result = 'L'
+
+        const chipName = (mp) => ({
+          name: mp.is_guest ? mp.guest_name : (playerMap[mp.player_id] || '?'),
+          goals: goalsList.find(g => g.player_id === mp.player_id)?.count || 0,
+          isGuest: mp.is_guest,
+          isMe: mp.player_id === player.id,
+        })
+
+        return {
+          ...m,
+          result,
+          black: parts.filter(mp => mp.team === 'crni').map(chipName),
+          white: parts.filter(mp => mp.team === 'bijeli').map(chipName),
+        }
+      })
+
+    setPlayerMatches(played)
+  }
+
+  function closeModal() {
+    setSelectedPlayer(null)
+    setPlayerMatches([])
+  }
+
   if (loading) return <AppLayout><div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Učitavanje...</div></AppLayout>
 
   return (
     <AppLayout>
-      {/* Svaki igrač = kartica */}
       {players.length === 0 && (
         <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14, padding: 32, textAlign: 'center', color: 'var(--muted)' }}>
           Nema igrača. Dodaj ih u Admin.
@@ -80,50 +140,45 @@ export default function Ljestvica() {
       )}
 
       {players.map((p, i) => (
-        <div key={p.id} style={{
-          background: 'var(--panel)',
-          border: `1px solid ${i === 0 ? '#f59e0b' : i === 1 ? '#9ca3af' : i === 2 ? '#b45309' : 'var(--border)'}`,
-          borderRadius: 14,
-          padding: '12px 14px',
-          marginBottom: 10,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}>
+        <div
+          key={p.id}
+          onClick={() => openPlayerModal(p)}
+          style={{
+            background: 'var(--panel)',
+            border: `1px solid ${i === 0 ? '#f59e0b' : i === 1 ? '#9ca3af' : i === 2 ? '#b45309' : 'var(--border)'}`,
+            borderRadius: 14, padding: '12px 10px', marginBottom: 10,
+            display: 'flex', alignItems: 'center', gap: 8,
+            cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+          }}
+        >
           {/* Rank */}
           <div style={{
-            fontSize: i < 3 ? 22 : 15,
-            fontWeight: 700,
+            fontSize: i < 3 ? 20 : 14, fontWeight: 700,
             color: i === 0 ? '#f59e0b' : i === 1 ? '#9ca3af' : i === 2 ? '#b45309' : 'var(--muted)',
-            minWidth: 28,
-            textAlign: 'center',
+            minWidth: 26, textAlign: 'center', flexShrink: 0,
           }}>
             {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
           </div>
 
-          {/* Ime + forma + extra stats */}
+          {/* Ime + forma + stats */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 5 }}>{p.name}</div>
-            <div style={{ display: 'flex', flexWrap: 'nowrap', marginBottom: 6 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{p.name}</div>
+            <div style={{ display: 'flex', flexWrap: 'nowrap', marginBottom: 5 }}>
               {p.form.map((r, j) => <FormDot key={j} r={r} />)}
             </div>
-            {/* Dolaznost + uspješnost */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--card)', borderRadius: 6, padding: '2px 7px' }}>
-                📅 {p.played} ut · {p.attendancePct}%
-              </span>
-              <span style={{ fontSize: 11, color: p.winPct >= 50 ? 'var(--win)' : 'var(--muted)', background: 'var(--card)', borderRadius: 6, padding: '2px 7px' }}>
-                🏆 {p.winPct}% uspj.
+            <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.6 }}>
+              {p.played}/{totalMatches} odigranih utakmica · {p.attendancePct}%
+              <span style={{ marginLeft: 6, color: p.winPct >= 50 ? 'var(--win)' : 'var(--muted)' }}>
+                · {p.winPct}% uspješnost
               </span>
             </div>
           </div>
 
-          {/* Statistike */}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            {/* W/D/L */}
+          {/* W/D/L + Bodovi */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: 'var(--muted)' }}>W/D/L</div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>
+              <div style={{ fontSize: 10, color: 'var(--muted)' }}>W/D/L</div>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>
                 <span style={{ color: 'var(--win)' }}>{p.W}</span>
                 <span style={{ color: 'var(--muted)' }}>/</span>
                 <span style={{ color: 'var(--draw)' }}>{p.D}</span>
@@ -131,10 +186,8 @@ export default function Ljestvica() {
                 <span style={{ color: 'var(--loss)' }}>{p.L}</span>
               </div>
             </div>
-
-            {/* Bodovi */}
-            <div style={{ textAlign: 'center', minWidth: 36 }}>
-              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Bod</div>
+            <div style={{ textAlign: 'center', minWidth: 34 }}>
+              <div style={{ fontSize: 10, color: 'var(--muted)' }}>Bod</div>
               <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>{p.points}</div>
             </div>
           </div>
@@ -145,14 +198,88 @@ export default function Ljestvica() {
       {players.length > 0 && (
         <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 12, padding: 12, marginTop: 4 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Legenda</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 12, color: 'var(--muted)' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12, color: 'var(--muted)' }}>
             <span>W = Pobjeda (3 boda)</span>
             <span>D = Neriješeno (1 bod)</span>
             <span>L = Poraz (0 bodova)</span>
             <span>Forma = zadnjih 5 utakmica</span>
           </div>
-          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)' }}>
-            Razrješavanje izjednačenja: bodovi → manje utakmica → više pobjeda
+          <div style={{ marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>
+            💡 Klikni na igrača za pregled njegovih termina
+          </div>
+        </div>
+      )}
+
+      {/* MODAL — klizi odozdo */}
+      {selectedPlayer && (
+        <div
+          onClick={closeModal}
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            zIndex: 200,
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--panel)',
+              borderRadius: '18px 18px 0 0',
+              border: '1px solid var(--border)',
+              width: '100%', maxWidth: 600,
+              maxHeight: '82vh', overflowY: 'auto',
+              padding: 20,
+            }}
+          >
+            {/* Modal header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 18 }}>{selectedPlayer.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                  {playerMatches.length} odigranih · {selectedPlayer.W}W / {selectedPlayer.D}D / {selectedPlayer.L}L · {selectedPlayer.points} bod.
+                </div>
+              </div>
+              <button onClick={closeModal} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--muted)', fontSize: 20, width: 36, height: 36, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+            </div>
+
+            {playerMatches.length === 0 && (
+              <div style={{ color: 'var(--muted)', textAlign: 'center', padding: 24 }}>Nema odigranih termina.</div>
+            )}
+
+            {playerMatches.map(m => (
+              <div key={m.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: 12, marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{m.played_at}</span>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span style={{ fontSize: 16, fontWeight: 700 }}>{m.score_black}:{m.score_white}</span>
+                    <ResultChip r={m.result} />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[{ label: '⬛ Crni', team: m.black }, { label: '⬜ Bijeli', team: m.white }].map(({ label, team }) => (
+                    <div key={label}>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>{label}</div>
+                      {team.map((pl, idx) => (
+                        <span key={idx} style={{
+                          display: 'inline-block', fontSize: 12,
+                          padding: '2px 7px', borderRadius: 6,
+                          marginRight: 3, marginBottom: 3,
+                          background: pl.isMe ? 'rgba(61,214,255,0.15)' : 'var(--panel)',
+                          border: `1px ${pl.isGuest ? 'dashed' : 'solid'} ${pl.isMe ? 'var(--accent)' : 'var(--border)'}`,
+                          color: pl.isMe ? 'var(--accent)' : pl.isGuest ? 'var(--muted)' : 'var(--text)',
+                          fontWeight: pl.isMe ? 700 : 400,
+                        }}>
+                          {pl.name}{pl.goals > 0 ? ' ' + '⚽'.repeat(pl.goals) : ''}
+                        </span>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
