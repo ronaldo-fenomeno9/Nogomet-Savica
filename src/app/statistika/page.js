@@ -102,6 +102,7 @@ export default function Statistika() {
   const top10att = [...playerList].sort((a, b) => b.attendancePct - a.attendancePct).slice(0, 10)
   const top10wl = [...playerList].sort((a, b) => b.W - a.W).slice(0, 10)
   const top5form = [...playerList].map(p => ({ ...p, formScore: p.form.reduce((a, c) => a + (c === 'W' ? 3 : c === 'D' ? 1 : 0), 0) })).sort((a, b) => b.formScore - a.formScore).slice(0, 5)
+  const worst5form = [...playerList].filter(p => p.form.length > 0).map(p => ({ ...p, formScore: p.form.reduce((a, c) => a + (c === 'W' ? 3 : c === 'D' ? 1 : 0), 0) })).sort((a, b) => a.formScore - b.formScore).slice(0, 5)
   const calcStreak = (form, type) => { let c = 0; for (let i = form.length - 1; i >= 0; i--) { if (form[i] === type) c++; else break }; return c }
   const wStreaks = playerList.map(p => ({ name: p.name, n: calcStreak(p.form, 'W') })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 5)
   const lStreaks = playerList.map(p => ({ name: p.name, n: calcStreak(p.form, 'L') })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 5)
@@ -157,6 +158,17 @@ export default function Statistika() {
         <div style={s.cardTitle}>Najbolja forma — Top 5</div>
         {top5form.map(p => (
           <div key={p.id} style={s.pill}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
+            <div style={{ display: 'flex' }}>{p.form.map((r, i) => <FormDot key={i} r={r} />)}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Najlošija forma */}
+      <div style={s.card}>
+        <div style={s.cardTitle}>Najlošija forma — Top 5</div>
+        {worst5form.map(p => (
+          <div key={p.id} style={{ ...s.pill, borderColor: '#7f1d1d' }}>
             <div style={{ fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
             <div style={{ display: 'flex' }}>{p.form.map((r, i) => <FormDot key={i} r={r} />)}</div>
           </div>
