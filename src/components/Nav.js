@@ -3,11 +3,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const tabs = [
-  { href: '/statistika', label: 'Statistika' },
-  { href: '/termini', label: 'Termini' },
-  { href: '/strijelci', label: 'Strijelci' },
-  { href: '/obracuni', label: 'Obračuni' },
-  { href: '/admin', label: 'Admin' },
+  { href: '/ljestvica', label: '🏆 Ljestvica' },
+  { href: '/statistika', label: '📊 Statistika' },
+  { href: '/termini', label: '📅 Termini' },
+  { href: '/strijelci', label: '⚽ Strijelci' },
+  { href: '/obracuni', label: '💰 Obračuni' },
+  { href: '/admin', label: '🔐 Admin' },
 ]
 
 export default function Nav() {
@@ -17,40 +18,45 @@ export default function Nav() {
     <nav style={{
       background: 'var(--panel)',
       borderBottom: '1px solid var(--border)',
-      display: 'flex',
-      alignItems: 'center',
-      padding: '0 16px',
       position: 'sticky',
       top: 0,
       zIndex: 100,
-      overflowX: 'auto',
     }}>
+      {/* Logo */}
       <div style={{
+        padding: '12px 16px 8px',
         fontWeight: 700,
         fontSize: 15,
-        padding: '14px 0',
-        marginRight: 'auto',
         display: 'flex',
         alignItems: 'center',
         gap: 8,
-        whiteSpace: 'nowrap',
       }}>
         ⚽ HNB Savica
       </div>
 
-      {tabs.map(t => (
-        <Link key={t.href} href={t.href} style={{
-          padding: '14px 14px',
-          fontSize: 13,
-          fontWeight: 500,
-          color: path === t.href ? 'var(--accent)' : 'var(--muted)',
-          borderBottom: path === t.href ? '2px solid var(--accent)' : '2px solid transparent',
-          whiteSpace: 'nowrap',
-          transition: 'all 0.15s',
-        }}>
-          {t.label}
-        </Link>
-      ))}
+      {/* Tabs — horizontalni scroll */}
+      <div style={{
+        display: 'flex',
+        overflowX: 'auto',
+        scrollbarWidth: 'none',
+        WebkitOverflowScrolling: 'touch',
+        borderTop: '1px solid var(--border)',
+      }}>
+        {tabs.map(t => (
+          <Link key={t.href} href={t.href} style={{
+            padding: '10px 14px',
+            fontSize: 13,
+            fontWeight: 500,
+            color: path === t.href ? 'var(--accent)' : 'var(--muted)',
+            borderBottom: path === t.href ? '2px solid var(--accent)' : '2px solid transparent',
+            whiteSpace: 'nowrap',
+            transition: 'all 0.15s',
+            textDecoration: 'none',
+          }}>
+            {t.label}
+          </Link>
+        ))}
+      </div>
     </nav>
   )
 }
