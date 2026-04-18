@@ -87,7 +87,12 @@ export default function Statistika() {
       s.attendancePct = totalMatches > 0 ? (s.played / totalMatches * 100) : 0
     })
 
-    const playerList = Object.values(stats).sort((a, b) => b.points - a.points)
+    const playerList = Object.values(stats).sort((a, b) => {
+  if (b.points !== a.points) return b.points - a.points
+  if (a.played !== b.played) return a.played - b.played
+  if (b.W !== a.W) return b.W - a.W
+  return (b.W / (b.played || 1)) - (a.W / (a.played || 1))
+    })
 
     // Blagajna
     const kitty = Object.values(stats).reduce((sum, s) => sum + s.amount, 0)
