@@ -55,6 +55,7 @@ export default function Ljestvica() {
       points: s.W * 3 + s.D,
       amount: s.L * 3 + s.D * 2,
       attendancePct: matches.length > 0 ? Math.round(s.played / matches.length * 100) : 0,
+      winPct: s.played > 0 ? Math.round(s.W / s.played * 100) : 0,
     })).sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points
       if (a.played !== b.played) return a.played - b.played
@@ -100,11 +101,20 @@ export default function Ljestvica() {
             {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
           </div>
 
-          {/* Ime + forma */}
+          {/* Ime + forma + extra stats */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 5 }}>{p.name}</div>
-            <div style={{ display: 'flex', flexWrap: 'nowrap' }}>
+            <div style={{ display: 'flex', flexWrap: 'nowrap', marginBottom: 6 }}>
               {p.form.map((r, j) => <FormDot key={j} r={r} />)}
+            </div>
+            {/* Dolaznost + uspješnost */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--card)', borderRadius: 6, padding: '2px 7px' }}>
+                📅 {p.played} ut · {p.attendancePct}%
+              </span>
+              <span style={{ fontSize: 11, color: p.winPct >= 50 ? 'var(--win)' : 'var(--muted)', background: 'var(--card)', borderRadius: 6, padding: '2px 7px' }}>
+                🏆 {p.winPct}% uspj.
+              </span>
             </div>
           </div>
 
