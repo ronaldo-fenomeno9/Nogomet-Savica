@@ -267,7 +267,15 @@ export default function Admin() {
   const [editingMatch, setEditingMatch] = useState(null)
   const [toast, setToast] = useState('')
 
-  useEffect(() => { if (authed) { loadPlayers(); loadMatches() } }, [authed])
+  // Blagajna
+  const [kittyTxs, setKittyTxs] = useState([])
+  const [kittyDate, setKittyDate] = useState(new Date().toISOString().split('T')[0])
+  const [kittyAmount, setKittyAmount] = useState('')
+  const [kittyType, setKittyType] = useState('uplata')
+  const [kittyNote, setKittyNote] = useState('')
+  const [savingKitty, setSavingKitty] = useState(false)
+
+  useEffect(() => { if (authed) { loadPlayers(); loadMatches(); loadKitty() } }, [authed])
 
   async function loadPlayers() {
     const { data } = await supabase.from('players').select('*').eq('active', true).order('name')
@@ -307,6 +315,34 @@ export default function Admin() {
     if (!confirm('Ukloniti igrača? Statistika ostaje.')) return
     await supabase.from('players').update({ active: false }).eq('id', id)
     await loadPlayers()
+  }
+
+  async function loadKitty() {
+    const { data } = await supabase.from('kitty_transactions').select('*').order('date', { ascending: false })
+    setKittyTxs(data || [])
+  }
+
+  async function saveKittyTx() {
+    const amount = parseFloat(kittyAmount)
+    if (!amount || amount <= 0) { alert('Upiši ispravan iznos!'); return }
+    setSavingKitty(true)
+    await supabase.from('kitty_transactions').insert({
+      date: kittyDate,
+      amount,
+      type: kittyType,
+      note: kittyNote.trim() || null,
+    })
+    setKittyAmount('')
+    setKittyNote('')
+    await loadKitty()
+    setSavingKitty(false)
+    showToast(kittyType === 'uplata' ? '💵 Uplata dodana!' : '💸 Trošak dodan!')
+  }
+
+  async function deleteKittyTx(id) {
+    if (!confirm('Obrisati transakciju?')) return
+    await supabase.from('kitty_transactions').delete().eq('id', id)
+    await loadKitty()
   }
 
   async function deleteMatch(id) {
@@ -363,10 +399,11 @@ export default function Admin() {
       )}
 
       {/* Tabovi */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         <button style={s.tab(activeTab === 'novi')} onClick={() => { setActiveTab('novi'); setEditingMatch(null) }}>➕ Novi termin</button>
         <button style={s.tab(activeTab === 'termini')} onClick={() => { setActiveTab('termini'); setEditingMatch(null) }}>📋 Termini</button>
         <button style={s.tab(activeTab === 'igraci')} onClick={() => setActiveTab('igraci')}>👥 Igrači</button>
+        <button style={s.tab(activeTab === 'blagajna')} onClick={() => setActiveTab('blagajna')}>🏦 Blagajna</button>
       </div>
 
       {/* NOVI TERMIN */}
@@ -441,6 +478,81 @@ export default function Admin() {
               <div key={p.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
                 {p.name}
                 <span style={{ cursor: 'pointer', color: 'var(--loss)', fontSize: 18, lineHeight: 1 }} onClick={() => removePlayer(p.id)}>×</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* BLAGAJNA */}
+      {activeTab === 'blagajna' && (
+        <div>
+          <div style={s.card}>
+            <div style={s.cardTitle}>Nova transakcija</div>
+
+            {/* Tip */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button
+                onClick={() => setKittyType('uplata')}
+                style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${kittyType === 'uplata' ? '#166534' : 'var(--border)'}`, background: kittyType === 'uplata' ? '#052e16' : 'var(--card)', color: kittyType === 'uplata' ? 'var(--win)' : 'var(--muted)', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
+              >
+                💵 Uplata
+              </button>
+              <button
+                onClick={() => setKittyType('trosak')}
+                style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${kittyType === 'trosak' ? '#7f1d1d' : 'var(--border)'}`, background: kittyType === 'trosak' ? '#1c0202' : 'var(--card)', color: kittyType === 'trosak' ? 'var(--loss)' : 'var(--muted)', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
+              >
+                💸 Trošak
+              </button>
+            </div>
+
+            {/* Datum */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Datum</div>
+              <input style={{ ...s.input, width: 'auto' }} type="date" value={kittyDate} onChange={e => setKittyDate(e.target.value)} />
+            </div>
+
+            {/* Iznos */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Iznos (€)</div>
+              <input style={s.input} type="number" min="0" step="0.01" placeholder="npr. 300.00" value={kittyAmount} onChange={e => setKittyAmount(e.target.value)} />
+            </div>
+
+            {/* Komentar */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Komentar (opcija)</div>
+              <input style={s.input} placeholder="npr. Tim building, piknik..." value={kittyNote} onChange={e => setKittyNote(e.target.value)} />
+            </div>
+
+            <button
+              onClick={saveKittyTx}
+              disabled={savingKitty}
+              style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: kittyType === 'uplata' ? 'linear-gradient(135deg,#22c55e,#16a34a)' : 'linear-gradient(135deg,#ef4444,#b91c1c)', color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer', opacity: savingKitty ? 0.7 : 1 }}
+            >
+              {savingKitty ? 'Spremanje...' : kittyType === 'uplata' ? '💵 Dodaj uplatu' : '💸 Dodaj trošak'}
+            </button>
+          </div>
+
+          {/* Historia transakcija */}
+          <div style={s.card}>
+            <div style={s.cardTitle}>Povijest transakcija</div>
+            {kittyTxs.length === 0 && (
+              <div style={{ color: 'var(--muted)', fontSize: 13 }}>Nema transakcija.</div>
+            )}
+            {kittyTxs.map(t => (
+              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>
+                    {t.type === 'uplata' ? '💵' : '💸'} {t.date}
+                  </div>
+                  {t.note && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{t.note}</div>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: t.type === 'uplata' ? 'var(--win)' : 'var(--loss)' }}>
+                    {t.type === 'uplata' ? '+' : '-'}{Number(t.amount).toFixed(2)} €
+                  </span>
+                  <button onClick={() => deleteKittyTx(t.id)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #7f1d1d', background: '#1c0202', color: 'var(--loss)', fontSize: 12, cursor: 'pointer' }}>🗑️</button>
+                </div>
               </div>
             ))}
           </div>
