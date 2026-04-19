@@ -90,6 +90,7 @@ export default function Ljestvica() {
   }
 
   async function shareStandings() {
+    if (!shareRef.current) return
     setSharing(true)
     try {
       const html2canvas = (await import('html2canvas')).default
@@ -100,13 +101,9 @@ export default function Ljestvica() {
       })
       canvas.toBlob(async (blob) => {
         const file = new File([blob], 'ljestvica-savica.png', { type: 'image/png' })
-        if (navigator.share && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            title: 'HNB Savica — Ljestvica',
-            files: [file],
-          })
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ title: 'HNB Savica — Ljestvica', files: [file] })
         } else {
-          // fallback — download
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
           a.href = url; a.download = 'ljestvica-savica.png'; a.click()
@@ -115,6 +112,7 @@ export default function Ljestvica() {
         setSharing(false)
       }, 'image/png')
     } catch (e) {
+      console.error(e)
       setSharing(false)
     }
   }
@@ -161,7 +159,13 @@ export default function Ljestvica() {
     setPlayerMatches([])
   }
 
-  if (loading) return <AppLayout><div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Učitavanje...</div></AppLayout>
+  if (loading) {
+    return (
+      <AppLayout>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Učitavanje...</div>
+      </AppLayout>
+    )
+  }
 
   return (
     <AppLayout>
@@ -170,7 +174,13 @@ export default function Ljestvica() {
         <button
           onClick={shareStandings}
           disabled={sharing || players.length === 0}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', color: sharing ? 'var(--muted)' : 'var(--text)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 16px', borderRadius: 10,
+            border: '1px solid var(--border)', background: 'var(--panel)',
+            color: sharing ? 'var(--muted)' : 'var(--text)',
+            fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          }}
         >
           {sharing ? '⏳ Generiranje...' : '📤 Podijeli ljestvicu'}
         </button>
@@ -178,80 +188,84 @@ export default function Ljestvica() {
 
       {/* Ljestvica — ovaj div ide na screenshot */}
       <div ref={shareRef} style={{ background: '#0f1720', borderRadius: 14, padding: 4 }}>
-        <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14, padding: 32, textAlign: 'center', color: 'var(--muted)' }}>
-          Nema igrača. Dodaj ih u Admin.
-        </div>
-      )}
 
-      {players.map((p, i) => (
-        <div
-          key={p.id}
-          onClick={() => openPlayerModal(p)}
-          style={{
-            background: 'var(--panel)',
-            border: `1px solid ${i === 0 ? '#f59e0b' : i === 1 ? '#9ca3af' : i === 2 ? '#b45309' : 'var(--border)'}`,
-            borderRadius: 14, padding: '12px 10px', marginBottom: 10,
-            display: 'flex', alignItems: 'center', gap: 8,
-            cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          {/* Rank */}
-          <div style={{
-            fontSize: i < 3 ? 20 : 14, fontWeight: 700,
-            color: i === 0 ? '#f59e0b' : i === 1 ? '#9ca3af' : i === 2 ? '#b45309' : 'var(--muted)',
-            minWidth: 26, textAlign: 'center', flexShrink: 0,
-          }}>
-            {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
+        {players.length === 0 && (
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14, padding: 32, textAlign: 'center', color: 'var(--muted)' }}>
+            Nema igrača. Dodaj ih u Admin.
           </div>
+        )}
 
-          {/* Ime + forma + stats */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{p.name}</div>
-            <div style={{ display: 'flex', flexWrap: 'nowrap', marginBottom: 5 }}>
-              {p.form.map((r, j) => <FormDot key={j} r={r} />)}
+        {players.map((p, i) => (
+          <div
+            key={p.id}
+            onClick={() => openPlayerModal(p)}
+            style={{
+              background: 'var(--panel)',
+              border: `1px solid ${i === 0 ? '#f59e0b' : i === 1 ? '#9ca3af' : i === 2 ? '#b45309' : 'var(--border)'}`,
+              borderRadius: 14, padding: '12px 10px', marginBottom: 10,
+              display: 'flex', alignItems: 'center', gap: 8,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            {/* Rank */}
+            <div style={{
+              fontSize: i < 3 ? 20 : 14, fontWeight: 700,
+              color: i === 0 ? '#f59e0b' : i === 1 ? '#9ca3af' : i === 2 ? '#b45309' : 'var(--muted)',
+              minWidth: 26, textAlign: 'center', flexShrink: 0,
+            }}>
+              {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.8 }}>
-              <div>{p.played}/{totalMatches} odigranih · {p.attendancePct}% dolaznost</div>
-              <div style={{ color: p.winPct >= 50 ? 'var(--win)' : 'var(--loss)' }}>{p.winPct}% uspješnost</div>
-            </div>
-          </div>
 
-          {/* W/D/L + Bodovi */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 10, color: 'var(--muted)' }}>W/D/L</div>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>
-                <span style={{ color: 'var(--win)' }}>{p.W}</span>
-                <span style={{ color: 'var(--muted)' }}>/</span>
-                <span style={{ color: 'var(--draw)' }}>{p.D}</span>
-                <span style={{ color: 'var(--muted)' }}>/</span>
-                <span style={{ color: 'var(--loss)' }}>{p.L}</span>
+            {/* Ime + forma + stats */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{p.name}</div>
+              <div style={{ display: 'flex', flexWrap: 'nowrap', marginBottom: 5 }}>
+                {p.form.map((r, j) => <FormDot key={j} r={r} />)}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.8 }}>
+                <div>{p.played}/{totalMatches} odigranih · {p.attendancePct}% dolaznost</div>
+                <div style={{ color: p.winPct >= 50 ? 'var(--win)' : 'var(--loss)' }}>{p.winPct}% uspješnost</div>
               </div>
             </div>
-            <div style={{ textAlign: 'center', minWidth: 34 }}>
-              <div style={{ fontSize: 10, color: 'var(--muted)' }}>Bod</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>{p.points}</div>
+
+            {/* W/D/L + Bodovi */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'var(--muted)' }}>W/D/L</div>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>
+                  <span style={{ color: 'var(--win)' }}>{p.W}</span>
+                  <span style={{ color: 'var(--muted)' }}>/</span>
+                  <span style={{ color: 'var(--draw)' }}>{p.D}</span>
+                  <span style={{ color: 'var(--muted)' }}>/</span>
+                  <span style={{ color: 'var(--loss)' }}>{p.L}</span>
+                </div>
+              </div>
+              <div style={{ textAlign: 'center', minWidth: 34 }}>
+                <div style={{ fontSize: 10, color: 'var(--muted)' }}>Bod</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>{p.points}</div>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        ))}
 
-      {/* Legenda */}
-      {players.length > 0 && (
-        <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 12, padding: 12, marginTop: 4 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Legenda</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12, color: 'var(--muted)' }}>
-            <span>W = Pobjeda (3 boda)</span>
-            <span>D = Neriješeno (1 bod)</span>
-            <span>L = Poraz (0 bodova)</span>
-            <span>Forma = zadnjih 5 utakmica</span>
+        {/* Legenda */}
+        {players.length > 0 && (
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 12, padding: 12, marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Legenda</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12, color: 'var(--muted)' }}>
+              <span>W = Pobjeda (3 boda)</span>
+              <span>D = Neriješeno (1 bod)</span>
+              <span>L = Poraz (0 bodova)</span>
+              <span>Forma = zadnjih 5 utakmica</span>
+            </div>
+            <div style={{ marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>
+              💡 Klikni na igrača za pregled njegovih termina
+            </div>
           </div>
-          <div style={{ marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>
-            💡 Klikni na igrača za pregled njegovih termina
-          </div>
-        </div>
-      )}
-      </div> {/* kraj shareRef */}
+        )}
+
+      </div>
+      {/* kraj shareRef div-a */}
 
       {/* MODAL — klizi odozdo */}
       {selectedPlayer && (
@@ -285,7 +299,10 @@ export default function Ljestvica() {
                   {playerMatches.length} odigranih · {selectedPlayer.W}W / {selectedPlayer.D}D / {selectedPlayer.L}L · {selectedPlayer.points} bod.
                 </div>
               </div>
-              <button onClick={closeModal} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--muted)', fontSize: 20, width: 36, height: 36, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              <button
+                onClick={closeModal}
+                style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--muted)', fontSize: 20, width: 36, height: 36, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >×</button>
             </div>
 
             {playerMatches.length === 0 && (
@@ -321,6 +338,11 @@ export default function Ljestvica() {
                     </div>
                   ))}
                 </div>
+                {m.note && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', background: 'var(--panel)', borderRadius: 8, padding: '6px 10px', borderLeft: '3px solid var(--accent)' }}>
+                    💬 {m.note}
+                  </div>
+                )}
               </div>
             ))}
           </div>
