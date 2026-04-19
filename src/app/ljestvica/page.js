@@ -225,6 +225,7 @@ export default function Ljestvica() {
               <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.8 }}>
                 <div>{p.played}/{totalMatches} odigranih · {p.attendancePct}% dolaznost</div>
                 <div style={{ color: p.winPct >= 50 ? 'var(--win)' : 'var(--loss)' }}>{p.winPct}% uspješnost</div>
+                <div style={{ color: 'var(--loss)' }}>Uplaćeno: {p.amount.toFixed(2)} €</div>
               </div>
             </div>
 
