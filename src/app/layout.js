@@ -2,7 +2,7 @@ import './globals.css'
 
 export const metadata = {
   title: 'Nogomet HNB Savica',
-  description: 'Statistika petkovog nogometa',
+  description: 'Statistika HNB termin',
   viewport: 'width=device-width, initial-scale=1',
 }
 
