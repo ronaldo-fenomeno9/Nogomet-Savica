@@ -41,6 +41,7 @@ function MatchForm({ players, existing, onSave, onCancel }) {
       ...existing.white.filter(p => p.isGuest).map(p => ({ name: p.name, team: 'bijeli' })),
     ]
   })
+  const [note, setNote] = useState(existing?.note || '')
   const [saving, setSaving] = useState(false)
 
   function cyclePlayer(id) {
@@ -82,12 +83,12 @@ function MatchForm({ players, existing, onSave, onCancel }) {
 
     if (existing) {
       // UPDATE
-      await supabase.from('matches').update({ played_at: matchDate, score_black: sb, score_white: sw, winner }).eq('id', matchId)
+      await supabase.from('matches').update({ played_at: matchDate, score_black: sb, score_white: sw, winner, note: note.trim() || null }).eq('id', matchId)
       await supabase.from('match_players').delete().eq('match_id', matchId)
       await supabase.from('goals').delete().eq('match_id', matchId)
     } else {
       // INSERT
-      const { data: match } = await supabase.from('matches').insert({ played_at: matchDate, score_black: sb, score_white: sw, winner }).select().single()
+      const { data: match } = await supabase.from('matches').insert({ played_at: matchDate, score_black: sb, score_white: sw, winner, note: note.trim() || null }).select().single()
       matchId = match.id
     }
 
@@ -200,6 +201,17 @@ function MatchForm({ players, existing, onSave, onCancel }) {
           </>}
         </div>
       )}
+
+      {/* Komentar */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Komentar (opcija)</div>
+        <input
+          style={s.input}
+          placeholder="npr. Kiša, igrano u dvorani..."
+          value={note}
+          onChange={e => setNote(e.target.value)}
+        />
+      </div>
 
       <div style={{ display: 'flex', gap: 10 }}>
         {onCancel && (
@@ -393,7 +405,7 @@ export default function Admin() {
                       <div style={{ color: 'var(--muted)', marginBottom: 3 }}>⬛ Crni</div>
                       {m.black.map((p, i) => {
                         const g = m.goalsList?.find(gl => gl.player_id === p.player_id)
-                        return <span key={i} style={{ display: 'inline-block', background: 'var(--card)', border: `1px solid ${p.isGuest ? 'var(--border)' : 'var(--border)'}`, borderStyle: p.isGuest ? 'dashed' : 'solid', borderRadius: 6, padding: '2px 7px', marginRight: 4, marginBottom: 4, color: p.isGuest ? 'var(--muted)' : 'var(--text)', fontSize: 12 }}>{p.name}{g ? ' ⚽'.repeat(g.count) : ''}</span>
+                        return <span key={i} style={{ display: 'inline-block', background: 'var(--card)', border: '1px solid var(--border)', borderStyle: p.isGuest ? 'dashed' : 'solid', borderRadius: 6, padding: '2px 7px', marginRight: 4, marginBottom: 4, color: p.isGuest ? 'var(--muted)' : 'var(--text)', fontSize: 12 }}>{p.name}{g ? ' ⚽'.repeat(g.count) : ''}</span>
                       })}
                     </div>
                     <div>
@@ -404,6 +416,11 @@ export default function Admin() {
                       })}
                     </div>
                   </div>
+                  {m.note && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', background: 'var(--card)', borderRadius: 8, padding: '6px 10px', borderLeft: '3px solid var(--accent)' }}>
+                      💬 {m.note}
+                    </div>
+                  )}
                 </div>
               ))}
             </>
