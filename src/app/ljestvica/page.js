@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout'
 
@@ -28,6 +28,8 @@ export default function Ljestvica() {
   const [players, setPlayers] = useState([])
   const [totalMatches, setTotalMatches] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [sharing, setSharing] = useState(false)
+  const shareRef = useRef(null)
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [playerMatches, setPlayerMatches] = useState([])
   const [allMatches, setAllMatches] = useState([])
@@ -87,6 +89,36 @@ export default function Ljestvica() {
     setLoading(false)
   }
 
+  async function shareStandings() {
+    setSharing(true)
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(shareRef.current, {
+        backgroundColor: '#0f1720',
+        scale: 2,
+        useCORS: true,
+      })
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], 'ljestvica-savica.png', { type: 'image/png' })
+        if (navigator.share && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: 'HNB Savica — Ljestvica',
+            files: [file],
+          })
+        } else {
+          // fallback — download
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url; a.download = 'ljestvica-savica.png'; a.click()
+          URL.revokeObjectURL(url)
+        }
+        setSharing(false)
+      }, 'image/png')
+    } catch (e) {
+      setSharing(false)
+    }
+  }
+
   function openPlayerModal(player) {
     setSelectedPlayer(player)
     const matchIds = allMatchPlayers
@@ -133,7 +165,19 @@ export default function Ljestvica() {
 
   return (
     <AppLayout>
-      {players.length === 0 && (
+      {/* Share gumb */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+        <button
+          onClick={shareStandings}
+          disabled={sharing || players.length === 0}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', color: sharing ? 'var(--muted)' : 'var(--text)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+        >
+          {sharing ? '⏳ Generiranje...' : '📤 Podijeli ljestvicu'}
+        </button>
+      </div>
+
+      {/* Ljestvica — ovaj div ide na screenshot */}
+      <div ref={shareRef} style={{ background: '#0f1720', borderRadius: 14, padding: 4 }}>
         <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14, padding: 32, textAlign: 'center', color: 'var(--muted)' }}>
           Nema igrača. Dodaj ih u Admin.
         </div>
@@ -166,11 +210,9 @@ export default function Ljestvica() {
             <div style={{ display: 'flex', flexWrap: 'nowrap', marginBottom: 5 }}>
               {p.form.map((r, j) => <FormDot key={j} r={r} />)}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.6 }}>
-              {p.played}/{totalMatches} odigranih utakmica · {p.attendancePct}%
-              <span style={{ marginLeft: 6, color: p.winPct >= 50 ? 'var(--win)' : 'var(--muted)' }}>
-                · {p.winPct}% uspješnost
-              </span>
+            <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.8 }}>
+              <div>{p.played}/{totalMatches} odigranih · {p.attendancePct}% dolaznost</div>
+              <div style={{ color: p.winPct >= 50 ? 'var(--win)' : 'var(--loss)' }}>{p.winPct}% uspješnost</div>
             </div>
           </div>
 
@@ -209,6 +251,7 @@ export default function Ljestvica() {
           </div>
         </div>
       )}
+      </div> {/* kraj shareRef */}
 
       {/* MODAL — klizi odozdo */}
       {selectedPlayer && (
