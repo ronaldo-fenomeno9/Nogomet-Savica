@@ -55,7 +55,7 @@ export default function Ljestvica() {
     setAllGoals(goals || [])
 
     const stats = {}
-    ps.forEach(p => { stats[p.id] = { id: p.id, name: p.name, played: 0, W: 0, D: 0, L: 0, form: [] } })
+    ps.forEach(p => { stats[p.id] = { id: p.id, name: p.name, played: 0, W: 0, D: 0, L: 0, form: [], fullForm: [] } })
 
     matches.forEach(m => {
       const black = (matchPlayers || []).filter(mp => mp.match_id === m.id && mp.team === 'crni' && !mp.is_guest).map(mp => mp.player_id)
@@ -63,6 +63,7 @@ export default function Ljestvica() {
       const apply = (pid, res) => {
         if (!stats[pid]) return
         stats[pid].played++; stats[pid][res]++
+        stats[pid].fullForm.push(res)
         stats[pid].form.push(res)
         if (stats[pid].form.length > 5) stats[pid].form.shift()
       }
