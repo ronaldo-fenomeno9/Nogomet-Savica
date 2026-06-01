@@ -41,7 +41,7 @@ export default function Statistika() {
     if (!ps || !matches) { setLoading(false); return }
 
     const stats = {}
-    ps.forEach(p => { stats[p.id] = { id: p.id, name: p.name, played: 0, W: 0, D: 0, L: 0, goals: 0, form: [] } })
+    ps.forEach(p => { stats[p.id] = { id: p.id, name: p.name, played: 0, W: 0, D: 0, L: 0, goals: 0, form: [], fullForm: [] } })
 
     matches.forEach(m => {
       const black = (matchPlayers || []).filter(mp => mp.match_id === m.id && mp.team === 'crni' && !mp.is_guest).map(mp => mp.player_id)
@@ -49,6 +49,7 @@ export default function Statistika() {
       const apply = (pid, res) => {
         if (!stats[pid]) return
         stats[pid].played++; stats[pid][res]++
+        stats[pid].fullForm.push(res) // puna povijest za streak
         stats[pid].form.push(res)
         if (stats[pid].form.length > 5) stats[pid].form.shift()
       }
@@ -100,11 +101,17 @@ export default function Statistika() {
   const { playerList, kitty, totalMatches, blackWins, whiteWins, draws, duoBest, duoWorst } = data
 
   const top10att = [...playerList].sort((a, b) => b.attendancePct - a.attendancePct).slice(0, 10)
-  const top10wl = [...playerList].sort((a, b) => b.W - a.W).slice(0, 10)
+  // Omjer pobjeda — samo igrači s min 50% dolaznosti, sortirano po W/played omjeru
+  const top10wl = [...playerList]
+    .filter(p => p.attendancePct >= 50)
+    .sort((a, b) => (b.W / (b.played || 1)) - (a.W / (a.played || 1)))
+    .slice(0, 10)
   const top5form = [...playerList].map(p => ({ ...p, formScore: p.form.reduce((a, c) => a + (c === 'W' ? 3 : c === 'D' ? 1 : 0), 0) })).sort((a, b) => b.formScore - a.formScore).slice(0, 5)
-  const calcStreak = (form, type) => { let c = 0; for (let i = form.length - 1; i >= 0; i--) { if (form[i] === type) c++; else break }; return c }
-  const wStreaks = playerList.map(p => ({ name: p.name, n: calcStreak(p.form, 'W') })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 5)
-  const lStreaks = playerList.map(p => ({ name: p.name, n: calcStreak(p.form, 'L') })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 5)
+  const worst5form = [...playerList].filter(p => p.form.length > 0).map(p => ({ ...p, formScore: p.form.reduce((a, c) => a + (c === 'W' ? 3 : c === 'D' ? 1 : 0), 0) })).sort((a, b) => a.formScore - b.formScore).slice(0, 5)
+  // Streak iz pune povijesti, ne samo zadnjih 5
+  const calcStreak = (fullForm, type) => { let c = 0; for (let i = fullForm.length - 1; i >= 0; i--) { if (fullForm[i] === type) c++; else break }; return c }
+  const wStreaks = playerList.map(p => ({ name: p.name, n: calcStreak(p.fullForm, 'W') })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 5)
+  const lStreaks = playerList.map(p => ({ name: p.name, n: calcStreak(p.fullForm, 'L') })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 5)
   const dots = (n, color, letter) => Array.from({ length: n }).map((_, i) => (
     <span key={i} style={{ width: 20, height: 20, borderRadius: 4, background: color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#000', marginRight: 2 }}>{letter}</span>
   ))
@@ -145,9 +152,12 @@ export default function Statistika() {
       </div>
 
       <div style={s.card}>
-        <div style={s.cardTitle}>Pobjede / Porazi — Top 10</div>
+        <div style={s.cardTitle}>Omjer pobjeda — Top 10 (min. 50% dolaznost)</div>
         <Bar
-          data={{ labels: top10wl.map(p => p.name), datasets: [{ label: 'Pobjede', data: top10wl.map(p => p.W), backgroundColor: '#22c55e', borderRadius: 4 }, { label: 'Porazi', data: top10wl.map(p => p.L), backgroundColor: '#ef4444', borderRadius: 4 }] }}
+          data={{ labels: top10wl.map(p => p.name), datasets: [
+            { label: 'Pobjede %', data: top10wl.map(p => Math.round(p.W / p.played * 100)), backgroundColor: '#22c55e', borderRadius: 4 },
+            { label: 'Porazi %', data: top10wl.map(p => Math.round(p.L / p.played * 100)), backgroundColor: '#ef4444', borderRadius: 4 }
+          ]}}
           options={CHART_OPTS}
         />
       </div>
@@ -157,6 +167,17 @@ export default function Statistika() {
         <div style={s.cardTitle}>Najbolja forma — Top 5</div>
         {top5form.map(p => (
           <div key={p.id} style={s.pill}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
+            <div style={{ display: 'flex' }}>{p.form.map((r, i) => <FormDot key={i} r={r} />)}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Najlošija forma */}
+      <div style={s.card}>
+        <div style={s.cardTitle}>Najlošija forma — Top 5</div>
+        {worst5form.map(p => (
+          <div key={p.id} style={{ ...s.pill, borderColor: '#7f1d1d' }}>
             <div style={{ fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
             <div style={{ display: 'flex' }}>{p.form.map((r, i) => <FormDot key={i} r={r} />)}</div>
           </div>
