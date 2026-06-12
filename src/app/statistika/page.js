@@ -106,8 +106,8 @@ export default function Statistika() {
     .filter(p => p.attendancePct >= 50)
     .sort((a, b) => (b.W / (b.played || 1)) - (a.W / (a.played || 1)))
     .slice(0, 10)
-  const top5form = [...playerList].map(p => ({ ...p, formScore: p.form.reduce((a, c) => a + (c === 'W' ? 3 : c === 'D' ? 1 : 0), 0) })).sort((a, b) => b.formScore - a.formScore).slice(0, 5)
-  const worst5form = [...playerList].filter(p => p.form.length > 0).map(p => ({ ...p, formScore: p.form.reduce((a, c) => a + (c === 'W' ? 3 : c === 'D' ? 1 : 0), 0) })).sort((a, b) => a.formScore - b.formScore).slice(0, 5)
+  const top5form = [...playerList].filter(p => p.form.length >= 5).map(p => ({ ...p, formScore: p.form.reduce((a, c) => a + (c === 'W' ? 3 : c === 'D' ? 1 : 0), 0) })).sort((a, b) => b.formScore - a.formScore).slice(0, 5)
+  const worst5form = [...playerList].filter(p => p.form.length >= 5).map(p => ({ ...p, formScore: p.form.reduce((a, c) => a + (c === 'W' ? 3 : c === 'D' ? 1 : 0), 0) })).sort((a, b) => a.formScore - b.formScore).slice(0, 5)
   // Streak iz pune povijesti, ne samo zadnjih 5
   const calcStreak = (fullForm, type) => { let c = 0; for (let i = fullForm.length - 1; i >= 0; i--) { if (fullForm[i] === type) c++; else break }; return c }
   const wStreaks = playerList.map(p => ({ name: p.name, n: calcStreak(p.fullForm, 'W') })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 5)
