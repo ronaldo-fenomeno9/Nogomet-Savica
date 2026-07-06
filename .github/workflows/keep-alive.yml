@@ -1,0 +1,18 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Svaki dan u 08:00 UTC (10:00 po hrvatskom ljetnom vremenu)
+    - cron: '0 8 * * *'
+  workflow_dispatch: # omogućuje ručno pokretanje iz GitHub sučelja
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase baze
+        run: |
+          curl -s "https://tjstyxrqmqenfxdnyymy.supabase.co/rest/v1/players?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+          echo "Ping poslan!"
