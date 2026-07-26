@@ -2,28 +2,53 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout'
+import { getCurrentSeason, seasonOf } from '@/lib/season'
 
 export default function Strijelci() {
   const [scorers, setScorers] = useState([])
+  const [season, setSeason] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
     const { data: players } = await supabase.from('players').select('*').eq('active', true)
+    const { data: matches } = await supabase.from('matches').select('*')
     const { data: goals } = await supabase.from('goals').select('*')
     const { data: matchPlayers } = await supabase.from('match_players').select('*').eq('is_guest', false)
 
-    const playerMap = {}
-    ;(players || []).forEach(p => playerMap[p.id] = p)
+    if (!players || !matches) { setLoading(false); return }
+
+    // Tekuća sezona
+    const currentSeason = getCurrentSeason(matches)
+    setSeason(currentSeason)
+
+    // Utakmice tekuće sezone
+    const seasonMatches = matches.filter(m => seasonOf(m.played_at) === currentSeason)
+    const seasonMatchIds = new Set(seasonMatches.map(m => m.id))
+
+    // Golovi tekuće sezone
+    const seasonGoals = (goals || []).filter(g => seasonMatchIds.has(g.match_id))
+
+    // Prva utakmica u kojoj su UOPĆE bilježeni golovi (od kad pratimo strijelce)
+    const matchesWithGoals = seasonMatches.filter(m => seasonGoals.some(g => g.match_id === m.id))
+    const firstGoalDate = matchesWithGoals.length > 0
+      ? matchesWithGoals.reduce((min, m) => m.played_at < min ? m.played_at : min, matchesWithGoals[0].played_at)
+      : null
 
     // Ukupni golovi po igraču
     const goalMap = {}
-    ;(goals || []).forEach(g => { goalMap[g.player_id] = (goalMap[g.player_id] || 0) + g.count })
+    seasonGoals.forEach(g => { goalMap[g.player_id] = (goalMap[g.player_id] || 0) + g.count })
 
-    // Broj utakmica po igraču
+    // Broj utakmica po igraču — SAMO od firstGoalDate nadalje (za realan prosjek)
     const playedMap = {}
-    ;(matchPlayers || []).forEach(mp => { playedMap[mp.player_id] = (playedMap[mp.player_id] || 0) + 1 })
+    ;(matchPlayers || []).forEach(mp => {
+      const m = seasonMatches.find(sm => sm.id === mp.match_id)
+      if (!m) return
+      if (firstGoalDate && m.played_at >= firstGoalDate) {
+        playedMap[mp.player_id] = (playedMap[mp.player_id] || 0) + 1
+      }
+    })
 
     const list = (players || [])
       .map(p => ({
@@ -48,7 +73,7 @@ export default function Strijelci() {
     <AppLayout>
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
-          Strijelci sezone
+          Strijelci sezone {season}
         </div>
 
         {scorers.length === 0 && (
@@ -73,6 +98,10 @@ export default function Strijelci() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div style={{ marginTop: 10, fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
+        Prosjek se računa od prve utakmice u kojoj su bilježeni golovi.
       </div>
     </AppLayout>
   )
