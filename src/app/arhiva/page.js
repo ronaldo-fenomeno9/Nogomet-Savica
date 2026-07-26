@@ -82,10 +82,21 @@ export default function Arhiva() {
     }
     const withStreaks = list.map(p => ({ ...p, maxW: maxStreak(p.seq, 'W'), maxL: maxStreak(p.seq, 'L') }))
 
-    // Strijelci
+    // Strijelci — prosjek se računa od prve utakmice s golovima
     const firstGoalDate = sMatches.filter(m => sGoals.some(g => g.match_id === m.id))
       .reduce((min, m) => (min === null || m.played_at < min) ? m.played_at : min, null)
-    const scorers = [...list].filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals)
+    const goalPlayedMap = {}
+    matchPlayers.forEach(mp => {
+      if (mp.is_guest) return
+      const m = sMatches.find(sm => sm.id === mp.match_id)
+      if (!m) return
+      if (firstGoalDate && m.played_at >= firstGoalDate) {
+        goalPlayedMap[mp.player_id] = (goalPlayedMap[mp.player_id] || 0) + 1
+      }
+    })
+    const scorers = [...list].filter(p => p.goals > 0)
+      .map(p => ({ ...p, goalPlayed: goalPlayedMap[p.id] || 0, goalAvg: goalPlayedMap[p.id] ? (p.goals / goalPlayedMap[p.id]) : 0 }))
+      .sort((a, b) => b.goals - a.goals)
 
     // Duo
     const pairs = {}
@@ -109,6 +120,25 @@ export default function Arhiva() {
     const bestDuo = [...pArr].sort((a, b) => b.w - a.w || a.l - b.l)[0]
     const worstDuo = [...pArr].sort((a, b) => b.l - a.l || a.w - b.w)[0]
 
+    // Duo s najboljim/najlošijim POSTOTKOM pobjeda (min 4 zajedno)
+    const pArrPct = Object.values(pairs).filter(p => p.total >= 4).map(p => ({
+      ...p, aName: playerMap[p.a], bName: playerMap[p.b],
+      winPct: Math.round(p.w / p.total * 100),
+    }))
+    const magicDuo = [...pArrPct].sort((a, b) => b.winPct - a.winPct)[0]
+    const cursedDuo = [...pArrPct].sort((a, b) => a.winPct - b.winPct)[0]
+
+    // Golmanski kandidat — najniži prosjek golova (min 5 utakmica od firstGoalDate)
+    const gkCandidate = scorers.length > 0
+      ? [...scorers].filter(p => p.goalPlayed >= 5).sort((a, b) => a.goalAvg - b.goalAvg)[0]
+      : null
+
+    // Kralj remija
+    const drawKing = [...list].sort((a, b) => b.D - a.D)[0]
+
+    // Najveći dužnik blagajne
+    const biggestDebtor = [...list].sort((a, b) => b.amount - a.amount)[0]
+
     // Ishodi i zanimljivosti
     const blackWins = sMatches.filter(m => m.winner === 'crni').length
     const whiteWins = sMatches.filter(m => m.winner === 'bijeli').length
@@ -131,6 +161,7 @@ export default function Arhiva() {
       seasonYear, list: withStreaks, scorers, bestDuo, worstDuo,
       blackWins, whiteWins, draws, kitty, played: sMatches.length,
       highestScoring, biggestMargin, dateFrom, dateTo, firstGoalDate,
+      gkCandidate, magicDuo, cursedDuo, drawKing, biggestDebtor,
     }
   }
 
@@ -167,7 +198,7 @@ export default function Arhiva() {
     // Strijelac
     if (topScorer) {
       lines.push('👑 KRALJ STRIJELACA')
-      lines.push(`${topScorer.name} je zatresao mrežu ${topScorer.goals} puta i proglašen je najboljim strijelcem sezone (prosjek ${topScorer.played ? (topScorer.goals / topScorer.played).toFixed(2) : '—'} gola po utakmici).`)
+      lines.push(`${topScorer.name} je zatresao mrežu ${topScorer.goals} puta i proglašen je najboljim strijelcem sezone (prosjek ${topScorer.goalAvg ? topScorer.goalAvg.toFixed(2) : '—'} gola po utakmici).`)
       if (d.scorers[1]) lines.push(`Slijede ga ${d.scorers[1].name} (${d.scorers[1].goals}) i ${d.scorers[2] ? `${d.scorers[2].name} (${d.scorers[2].goals})` : '...'}.`)
       lines.push('')
     }
@@ -207,6 +238,37 @@ export default function Arhiva() {
     if (d.biggestMargin && d.biggestMargin.margin >= 2) lines.push(`• Najuvjerljivija pobjeda: ${d.biggestMargin.played_at}, razlika od ${d.biggestMargin.margin} gola (${d.biggestMargin.score_black}:${d.biggestMargin.score_white}).`)
     lines.push(`• U blagajnu je kroz kazne (porazi i remiji) skupljeno ${d.kitty.toFixed(2)} €.`)
     lines.push('')
+
+    // 🎭 ZA SMIJEH
+    const funLines = []
+
+    // Golmanski kandidat — najniži prosjek golova (min 5 utakmica od kad se broje golovi)
+    if (d.gkCandidate) {
+      funLines.push(`🧤 Kandidat za golmansku karijeru: ${d.gkCandidate.name} — samo ${d.gkCandidate.goalAvg.toFixed(2)} gola po utakmici. Možda je vrijeme za rukavice?`)
+    }
+    // Zagarantirana pobjeda — duo s najboljim postotkom pobjeda (min 4 zajedno)
+    if (d.magicDuo) {
+      funLines.push(`✨ Kad zajedno igraju ${d.magicDuo.aName} i ${d.magicDuo.bName}, pobjeda je skoro zagarantirana — ${d.magicDuo.winPct}% pobjeda u ${d.magicDuo.total} zajedničkih termina!`)
+    }
+    // Prokletstvo — duo s najlošijim postotkom (min 4 zajedno)
+    if (d.cursedDuo) {
+      funLines.push(`💀 A kad se spoje ${d.cursedDuo.aName} i ${d.cursedDuo.bName}... bježite! Samo ${d.cursedDuo.winPct}% pobjeda zajedno. Prokletstvo ekipe.`)
+    }
+    // Remi kralj
+    if (d.drawKing && d.drawKing.D >= 3) {
+      funLines.push(`🤝 ${d.drawKing.name} je kralj remija — čak ${d.drawKing.D} neriješenih. Diplomat terena, nikog ne želi uvrijediti.`)
+    }
+    // Nula bodova / najveći dužnik blagajne
+    if (d.biggestDebtor && d.biggestDebtor.amount > 0) {
+      funLines.push(`💸 Najviše je u blagajnu "udijelio" ${d.biggestDebtor.name} — ${d.biggestDebtor.amount.toFixed(2)} €. Hvala na doprinosu za team building!`)
+    }
+
+    if (funLines.length > 0) {
+      lines.push('🎭 ZA SMIJEH')
+      funLines.forEach(l => lines.push('• ' + l))
+      lines.push('')
+    }
+
     lines.push('═══════════════════════════════')
     lines.push('Vidimo se sljedeće sezone! 🖤🤍')
 
