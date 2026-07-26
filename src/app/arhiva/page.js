@@ -48,18 +48,20 @@ export default function Arhiva() {
 
     // Statistika po igraču
     const stats = {}
-    players.forEach(p => { stats[p.id] = { id: p.id, name: p.name, played: 0, W: 0, D: 0, L: 0, goals: 0, seq: [] } })
+    players.forEach(p => { stats[p.id] = { id: p.id, name: p.name, played: 0, W: 0, D: 0, L: 0, goals: 0, seq: [],
+      blackW: 0, blackD: 0, blackL: 0, whiteW: 0, whiteD: 0, whiteL: 0 } })
 
     sMatches.forEach(m => {
       const black = matchPlayers.filter(mp => mp.match_id === m.id && mp.team === 'crni' && !mp.is_guest).map(mp => mp.player_id)
       const white = matchPlayers.filter(mp => mp.match_id === m.id && mp.team === 'bijeli' && !mp.is_guest).map(mp => mp.player_id)
-      const apply = (pid, res) => {
+      const apply = (pid, res, color) => {
         if (!stats[pid]) return
         stats[pid].played++; stats[pid][res]++; stats[pid].seq.push(res)
+        stats[pid][color + res]++
       }
-      if (m.winner === 'crni') { black.forEach(p => apply(p, 'W')); white.forEach(p => apply(p, 'L')) }
-      else if (m.winner === 'bijeli') { white.forEach(p => apply(p, 'W')); black.forEach(p => apply(p, 'L')) }
-      else { [...black, ...white].forEach(p => apply(p, 'D')) }
+      if (m.winner === 'crni') { black.forEach(p => apply(p, 'W', 'black')); white.forEach(p => apply(p, 'L', 'white')) }
+      else if (m.winner === 'bijeli') { white.forEach(p => apply(p, 'W', 'white')); black.forEach(p => apply(p, 'L', 'black')) }
+      else { black.forEach(p => apply(p, 'D', 'black')); white.forEach(p => apply(p, 'D', 'white')) }
     })
     sGoals.forEach(g => { if (stats[g.player_id]) stats[g.player_id].goals += g.count })
 
@@ -190,12 +192,43 @@ export default function Arhiva() {
     // Senatori — iz fiksnog popisa
     const senators = list.filter(p => SENATORS.includes(p.name))
 
+    // 👕 DRES-STATISTIKA (crni vs bijeli)
+    // Neporažen u jednoj boji (min 4 utakmice u toj boji)
+    const unbeatenColor = []
+    list.forEach(p => {
+      const blackGames = p.blackW + p.blackD + p.blackL
+      const whiteGames = p.whiteW + p.whiteD + p.whiteL
+      if (blackGames >= 4 && p.blackL === 0) unbeatenColor.push({ name: p.name, color: 'crnom', games: blackGames, w: p.blackW, d: p.blackD })
+      if (whiteGames >= 4 && p.whiteL === 0) unbeatenColor.push({ name: p.name, color: 'bijelom', games: whiteGames, w: p.whiteW, d: p.whiteD })
+    })
+
+    // Najveća razlika u uspješnosti između boja (min 4 utakmice u svakoj) — "voli jedan dres"
+    let colorLover = null
+    list.forEach(p => {
+      const bg = p.blackW + p.blackD + p.blackL
+      const wg = p.whiteW + p.whiteD + p.whiteL
+      if (bg >= 4 && wg >= 4) {
+        const blackPct = Math.round((p.blackW * 3 + p.blackD) / (bg * 3) * 100)
+        const whitePct = Math.round((p.whiteW * 3 + p.whiteD) / (wg * 3) * 100)
+        const diff = Math.abs(blackPct - whitePct)
+        if (!colorLover || diff > colorLover.diff) {
+          colorLover = {
+            name: p.name, diff,
+            favColor: blackPct > whitePct ? 'crnom' : 'bijelom',
+            weakColor: blackPct > whitePct ? 'bijelom' : 'crnom',
+            favPct: Math.max(blackPct, whitePct),
+            weakPct: Math.min(blackPct, whitePct),
+          }
+        }
+      }
+    })
+
     return {
       seasonYear, list: withStreaks, scorers, bestDuo, worstDuo,
       blackWins, whiteWins, draws, kitty, played: sMatches.length,
       highestScoring, biggestMargin, dateFrom, dateTo, firstGoalDate,
       gkCandidate, magicDuo, cursedDuo, drawKing, biggestDebtor,
-      goalkeepers, senators,
+      goalkeepers, senators, unbeatenColor, colorLover,
     }
   }
 
@@ -323,37 +356,40 @@ export default function Arhiva() {
         const many = sens.length > 1
         const names = joinNames(sens.map(s => s.name))
         switch (type) {
-          case 'lstreak': {
-            if (many) return `${names} ${'nanizali su poraze u seriji'} — bilo je i perioda za zaborav.`
-            const s = sens[0]
-            return `${s.name} je nanizao ${s.maxL} poraza zaredom — bio je tu i period za zaborav.`
-          }
           case 'att': {
             if (many) {
-              const parts = sens.map(s => `${s.name} sa ${s.attendancePct}%`)
-              return `${joinNames(parts)} — sve češće biraju kauč umjesto kopački. Je li to strah od mlađih lavova ili su godine napravile svoje?`
+              const parts = sens.map(s => `${s.name} (${s.attendancePct}%)`)
+              return `Dolaznost im nije jača strana: ${joinNames(parts)} sve češće biraju kauč umjesto kopački. Je li to strah od mlađih lavova ili su godine napravile svoje?`
             }
             const s = sens[0]
-            return `${s.name}: dolaznost od samo ${s.attendancePct}% — sve češće bira kauč umjesto kopački.`
+            return `${s.name} ima dolaznost od samo ${s.attendancePct}% — sve češće bira kauč umjesto kopački.`
           }
           case 'succ': {
             if (many) {
               const parts = sens.map(s => `${s.name} (${s.successPct}%)`)
-              return `${joinNames(parts)} — uspješnost je skromna, godine očito uzimaju danak.`
+              return `Uspješnost je skromna: ${joinNames(parts)} — godine očito uzimaju danak.`
             }
             const s = sens[0]
-            return `${s.name}: uspješnost od skromnih ${s.successPct}% — godine očito uzimaju danak.`
+            return `${s.name} ima uspješnost od skromnih ${s.successPct}% — godine očito uzimaju danak.`
           }
           case 'nogoals': {
-            if (many) return `${names} — nijedan gol cijelu sezonu, napadački balast ali srcem uz ekipu.`
-            return `${sens[0].name}: nula golova cijelu sezonu — napadački balast, ali srcem uz ekipu.`
+            if (many) return `Bez gola cijelu sezonu ostali su ${names} — napadački balast, ali srcem uz ekipu.`
+            return `${sens[0].name} nije zabio nijedan gol cijelu sezonu — napadački balast, ali srcem uz ekipu.`
           }
           case 'draws': {
             if (many) {
               const parts = sens.map(s => `${s.name} (${s.D})`)
-              return `${joinNames(parts)} — kraljevi remija, pravi diplomati terena.`
+              return `Kraljevi remija: ${joinNames(parts)} neriješenih — pravi diplomati terena.`
             }
-            return `${sens[0].name}: čak ${sens[0].D} remija — pravi diplomat terena.`
+            return `${sens[0].name} je skupio čak ${sens[0].D} remija — pravi diplomat terena.`
+          }
+          case 'lstreak': {
+            if (many) {
+              const parts = sens.map(s => `${s.name} (${s.maxL})`)
+              return `Nizovi poraza ih nisu zaobišli: ${joinNames(parts)} vezanih poraza — bilo je perioda za zaborav.`
+            }
+            const s = sens[0]
+            return `${s.name} je nanizao ${s.maxL} poraza zaredom — bio je tu i period za zaborav.`
           }
           default: {
             if (many) return `${names} — solidne sezone, nema se što zamjeriti. Za sada.`
@@ -396,6 +432,15 @@ export default function Arhiva() {
     // Nula bodova / najveći dužnik blagajne
     if (d.biggestDebtor && d.biggestDebtor.amount > 0) {
       funLines.push(`💸 Najviše je u blagajnu "udijelio" ${d.biggestDebtor.name} — ${d.biggestDebtor.amount.toFixed(2)} €. Hvala na doprinosu za team building!`)
+    }
+    // Neporažen u jednoj boji
+    if (d.unbeatenColor && d.unbeatenColor.length > 0) {
+      const u = d.unbeatenColor.sort((a, b) => b.games - a.games)[0]
+      funLines.push(`🛡️ ${u.name} je u ${u.color} dresu ove sezone NEPORAŽEN — ${u.games} utakmica bez poraza (${u.w} pobjeda, ${u.d} remija). Ta boja mu očito leži!`)
+    }
+    // Voli jedan dres
+    if (d.colorLover && d.colorLover.diff >= 20) {
+      funLines.push(`👕 ${d.colorLover.name} je pravi ${d.colorLover.favColor === 'crnom' ? 'crni' : 'bijeli'} igrač — u ${d.colorLover.favColor} boji vozi ${d.colorLover.favPct}% uspješnosti, a u ${d.colorLover.weakColor} tek ${d.colorLover.weakPct}%. Netko ovdje ima omiljeni dres!`)
     }
 
     if (funLines.length > 0) {
