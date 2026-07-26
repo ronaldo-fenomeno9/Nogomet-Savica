@@ -222,12 +222,28 @@ export default function Arhiva() {
     })
     colorLovers.sort((a, b) => b.diff - a.diff)
 
+    // Najgori u određenoj boji — najniža uspješnost u nekoj boji (min 4 utakmice u toj boji)
+    const colorFlops = []
+    list.forEach(p => {
+      const bg = p.blackW + p.blackD + p.blackL
+      const wg = p.whiteW + p.whiteD + p.whiteL
+      if (bg >= 4) {
+        const blackPct = Math.round((p.blackW * 3 + p.blackD) / (bg * 3) * 100)
+        colorFlops.push({ name: p.name, color: 'crnom', pct: blackPct, games: bg, l: p.blackL })
+      }
+      if (wg >= 4) {
+        const whitePct = Math.round((p.whiteW * 3 + p.whiteD) / (wg * 3) * 100)
+        colorFlops.push({ name: p.name, color: 'bijelom', pct: whitePct, games: wg, l: p.whiteL })
+      }
+    })
+    colorFlops.sort((a, b) => a.pct - b.pct)
+
     return {
       seasonYear, list: withStreaks, scorers, bestDuo, worstDuo,
       blackWins, whiteWins, draws, kitty, played: sMatches.length,
       highestScoring, biggestMargin, dateFrom, dateTo, firstGoalDate,
       gkCandidate, magicDuo, cursedDuo, drawKing, biggestDebtor,
-      goalkeepers, senators, unbeatenColor, colorLovers,
+      goalkeepers, senators, unbeatenColor, colorLovers, colorFlops,
     }
   }
 
@@ -428,10 +444,6 @@ export default function Arhiva() {
     if (d.drawKing && d.drawKing.D >= 3) {
       funLines.push(`🤝 ${d.drawKing.name} je kralj remija — čak ${d.drawKing.D} neriješenih. Diplomat terena, nikog ne želi uvrijediti.`)
     }
-    // Nula bodova / najveći dužnik blagajne
-    if (d.biggestDebtor && d.biggestDebtor.amount > 0) {
-      funLines.push(`💸 Najviše je u blagajnu "udijelio" ${d.biggestDebtor.name} — ${d.biggestDebtor.amount.toFixed(2)} €. Hvala na doprinosu za team building!`)
-    }
     // 👕 DRES FORE — izbjegni da isti igrač bude u dvije rečenice
     const usedDress = new Set()
     const unbeatenSorted = (d.unbeatenColor || []).sort((a, b) => b.games - a.games)
@@ -440,20 +452,26 @@ export default function Arhiva() {
 
     if (topUnbeaten) {
       const loverSame = lovers.find(l => l.name === topUnbeaten.name)
+      const adj = topUnbeaten.color === 'crnom' ? 'crni' : 'bijeli'
       if (loverSame) {
         // Isti igrač je i neporažen i voli tu boju — spoji u jednu bogatu rečenicu
-        funLines.push(`👕 ${topUnbeaten.name} obožava ${topUnbeaten.color} dres — u njemu je NEPORAŽEN (${topUnbeaten.games} utakmica: ${topUnbeaten.w} pobjeda, ${topUnbeaten.d} remija) i vozi ${loverSame.favPct}% uspješnosti, dok u ${loverSame.weakColor} pada na tek ${loverSame.weakPct}%. Netko ima svoju sretnu boju!`)
+        funLines.push(`👕 ${topUnbeaten.name} obožava ${adj} dres — u njemu je NEPORAŽEN (${topUnbeaten.games} utakmica: ${topUnbeaten.w} pobjeda, ${topUnbeaten.d} remija) i vozi ${loverSame.favPct}% uspješnosti, dok u ${loverSame.weakColor} pada na tek ${loverSame.weakPct}%. Netko ima svoju sretnu boju!`)
       } else {
         funLines.push(`🛡️ ${topUnbeaten.name} je u ${topUnbeaten.color} dresu ove sezone NEPORAŽEN — ${topUnbeaten.games} utakmica bez poraza (${topUnbeaten.w} pobjeda, ${topUnbeaten.d} remija). Ta boja mu očito leži!`)
       }
       usedDress.add(topUnbeaten.name)
     }
 
-    // Omiljeni dres — prvi kandidat koji NIJE već spomenut
-    const nextLover = lovers.find(l => !usedDress.has(l.name))
-    if (nextLover) {
-      funLines.push(`👕 ${nextLover.name} je pravi ${nextLover.favColor === 'crnom' ? 'crni' : 'bijeli'} igrač — u ${nextLover.favColor} boji vozi ${nextLover.favPct}% uspješnosti, a u ${nextLover.weakColor} tek ${nextLover.weakPct}%. Netko ovdje ima omiljeni dres!`)
-      usedDress.add(nextLover.name)
+    // Najgori u određenoj boji — prvi koji NIJE već spomenut
+    const flop = (d.colorFlops || []).find(f => !usedDress.has(f.name))
+    if (flop) {
+      funLines.push(`🥶 A tko baš i ne voli ${flop.color} dres? ${flop.name} — u ${flop.color} boji vozi tek ${flop.pct}% uspješnosti (${flop.l} ${flop.l === 1 ? 'poraz' : 'poraza'} u ${flop.games} utakmica). Možda je vrijeme za promjenu boje!`)
+      usedDress.add(flop.name)
+    }
+
+    // 💸 DUŽNIK BLAGAJNE — uvijek zadnji
+    if (d.biggestDebtor && d.biggestDebtor.amount > 0) {
+      funLines.push(`💸 I za kraj — najviše je u blagajnu "udijelio" ${d.biggestDebtor.name} (${d.biggestDebtor.amount.toFixed(2)} €). Hvala na doprinosu za team building!`)
     }
 
     if (funLines.length > 0) {
