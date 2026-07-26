@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout'
+import { getCurrentSeason, seasonOf } from '@/lib/season'
 
 const s = {
   card: { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 14 },
@@ -27,14 +28,16 @@ export default function Obracuni() {
 
     if (!matches || !players) { setLoading(false); return }
 
-    // Stanje blagajne — samo ručne transakcije
+    // Stanje blagajne — samo ručne transakcije (kroz sve sezone, stvarni novac)
     const txBalance = (txs || []).reduce((sum, t) => sum + (t.type === 'uplata' ? Number(t.amount) : -Number(t.amount)), 0)
     setKittyBalance(txBalance)
     setTransactions(txs || [])
 
-    // Mjesečni obračuni
+    // Mjesečni obračuni — samo tekuća sezona
+    const currentSeason = getCurrentSeason(matches)
+    const seasonMatches = matches.filter(m => seasonOf(m.played_at) === currentSeason)
     const monthly = {}
-    matches.forEach(m => {
+    seasonMatches.forEach(m => {
       const ym = m.played_at.slice(0, 7)
       if (!monthly[ym]) {
         monthly[ym] = { month: ym, played: 0, kitty: 0, table: {} }
