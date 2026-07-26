@@ -203,7 +203,7 @@ export default function Arhiva() {
     })
 
     // Najveća razlika u uspješnosti između boja (min 4 utakmice u svakoj) — "voli jedan dres"
-    let colorLover = null
+    const colorLovers = []
     list.forEach(p => {
       const bg = p.blackW + p.blackD + p.blackL
       const wg = p.whiteW + p.whiteD + p.whiteL
@@ -211,24 +211,23 @@ export default function Arhiva() {
         const blackPct = Math.round((p.blackW * 3 + p.blackD) / (bg * 3) * 100)
         const whitePct = Math.round((p.whiteW * 3 + p.whiteD) / (wg * 3) * 100)
         const diff = Math.abs(blackPct - whitePct)
-        if (!colorLover || diff > colorLover.diff) {
-          colorLover = {
-            name: p.name, diff,
-            favColor: blackPct > whitePct ? 'crnom' : 'bijelom',
-            weakColor: blackPct > whitePct ? 'bijelom' : 'crnom',
-            favPct: Math.max(blackPct, whitePct),
-            weakPct: Math.min(blackPct, whitePct),
-          }
-        }
+        colorLovers.push({
+          name: p.name, diff,
+          favColor: blackPct > whitePct ? 'crnom' : 'bijelom',
+          weakColor: blackPct > whitePct ? 'bijelom' : 'crnom',
+          favPct: Math.max(blackPct, whitePct),
+          weakPct: Math.min(blackPct, whitePct),
+        })
       }
     })
+    colorLovers.sort((a, b) => b.diff - a.diff)
 
     return {
       seasonYear, list: withStreaks, scorers, bestDuo, worstDuo,
       blackWins, whiteWins, draws, kitty, played: sMatches.length,
       highestScoring, biggestMargin, dateFrom, dateTo, firstGoalDate,
       gkCandidate, magicDuo, cursedDuo, drawKing, biggestDebtor,
-      goalkeepers, senators, unbeatenColor, colorLover,
+      goalkeepers, senators, unbeatenColor, colorLovers,
     }
   }
 
@@ -433,14 +432,28 @@ export default function Arhiva() {
     if (d.biggestDebtor && d.biggestDebtor.amount > 0) {
       funLines.push(`💸 Najviše je u blagajnu "udijelio" ${d.biggestDebtor.name} — ${d.biggestDebtor.amount.toFixed(2)} €. Hvala na doprinosu za team building!`)
     }
-    // Neporažen u jednoj boji
-    if (d.unbeatenColor && d.unbeatenColor.length > 0) {
-      const u = d.unbeatenColor.sort((a, b) => b.games - a.games)[0]
-      funLines.push(`🛡️ ${u.name} je u ${u.color} dresu ove sezone NEPORAŽEN — ${u.games} utakmica bez poraza (${u.w} pobjeda, ${u.d} remija). Ta boja mu očito leži!`)
+    // 👕 DRES FORE — izbjegni da isti igrač bude u dvije rečenice
+    const usedDress = new Set()
+    const unbeatenSorted = (d.unbeatenColor || []).sort((a, b) => b.games - a.games)
+    const topUnbeaten = unbeatenSorted[0]
+    const lovers = (d.colorLovers || []).filter(l => l.diff >= 20)
+
+    if (topUnbeaten) {
+      const loverSame = lovers.find(l => l.name === topUnbeaten.name)
+      if (loverSame) {
+        // Isti igrač je i neporažen i voli tu boju — spoji u jednu bogatu rečenicu
+        funLines.push(`👕 ${topUnbeaten.name} obožava ${topUnbeaten.color} dres — u njemu je NEPORAŽEN (${topUnbeaten.games} utakmica: ${topUnbeaten.w} pobjeda, ${topUnbeaten.d} remija) i vozi ${loverSame.favPct}% uspješnosti, dok u ${loverSame.weakColor} pada na tek ${loverSame.weakPct}%. Netko ima svoju sretnu boju!`)
+      } else {
+        funLines.push(`🛡️ ${topUnbeaten.name} je u ${topUnbeaten.color} dresu ove sezone NEPORAŽEN — ${topUnbeaten.games} utakmica bez poraza (${topUnbeaten.w} pobjeda, ${topUnbeaten.d} remija). Ta boja mu očito leži!`)
+      }
+      usedDress.add(topUnbeaten.name)
     }
-    // Voli jedan dres
-    if (d.colorLover && d.colorLover.diff >= 20) {
-      funLines.push(`👕 ${d.colorLover.name} je pravi ${d.colorLover.favColor === 'crnom' ? 'crni' : 'bijeli'} igrač — u ${d.colorLover.favColor} boji vozi ${d.colorLover.favPct}% uspješnosti, a u ${d.colorLover.weakColor} tek ${d.colorLover.weakPct}%. Netko ovdje ima omiljeni dres!`)
+
+    // Omiljeni dres — prvi kandidat koji NIJE već spomenut
+    const nextLover = lovers.find(l => !usedDress.has(l.name))
+    if (nextLover) {
+      funLines.push(`👕 ${nextLover.name} je pravi ${nextLover.favColor === 'crnom' ? 'crni' : 'bijeli'} igrač — u ${nextLover.favColor} boji vozi ${nextLover.favPct}% uspješnosti, a u ${nextLover.weakColor} tek ${nextLover.weakPct}%. Netko ovdje ima omiljeni dres!`)
+      usedDress.add(nextLover.name)
     }
 
     if (funLines.length > 0) {
