@@ -455,7 +455,7 @@ export default function Arhiva() {
       const adj = topUnbeaten.color === 'crnom' ? 'crni' : 'bijeli'
       if (loverSame) {
         // Isti igrač je i neporažen i voli tu boju — spoji u jednu bogatu rečenicu
-        funLines.push(`👕 ${topUnbeaten.name} obožava ${adj} dres — u njemu je NEPORAŽEN (${topUnbeaten.games} utakmica: ${topUnbeaten.w} pobjeda, ${topUnbeaten.d} remija) i vozi ${loverSame.favPct}% uspješnosti, dok u ${loverSame.weakColor} pada na tek ${loverSame.weakPct}%. Netko ima svoju sretnu boju!`)
+        funLines.push(`👕 ${topUnbeaten.name} obožava ${adj} dres — u njemu je NEPORAŽEN (${topUnbeaten.games} utakmica: ${topUnbeaten.w} pobjeda, ${topUnbeaten.d} remija) i ima ${loverSame.favPct}% uspješnosti, dok u ${loverSame.weakColor} pada na tek ${loverSame.weakPct}%. Netko ima svoju sretnu boju!`)
       } else {
         funLines.push(`🛡️ ${topUnbeaten.name} je u ${topUnbeaten.color} dresu ove sezone NEPORAŽEN — ${topUnbeaten.games} utakmica bez poraza (${topUnbeaten.w} pobjeda, ${topUnbeaten.d} remija). Ta boja mu očito leži!`)
       }
@@ -465,7 +465,8 @@ export default function Arhiva() {
     // Najgori u određenoj boji — prvi koji NIJE već spomenut
     const flop = (d.colorFlops || []).find(f => !usedDress.has(f.name))
     if (flop) {
-      funLines.push(`🥶 A tko baš i ne voli ${flop.color} dres? ${flop.name} — u ${flop.color} boji vozi tek ${flop.pct}% uspješnosti (${flop.l} ${flop.l === 1 ? 'poraz' : 'poraza'} u ${flop.games} utakmica). Možda je vrijeme za promjenu boje!`)
+      const flopAdj = flop.color === 'crnom' ? 'crni' : 'bijeli'
+      funLines.push(`🥶 A tko baš i ne voli ${flopAdj} dres? ${flop.name} — u ${flop.color} boji ima tek ${flop.pct}% uspješnosti (${flop.l} ${flop.l === 1 ? 'poraz' : 'poraza'} u ${flop.games} utakmica). Možda je vrijeme za promjenu boje!`)
       usedDress.add(flop.name)
     }
 
