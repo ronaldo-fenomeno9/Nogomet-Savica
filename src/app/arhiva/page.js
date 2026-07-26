@@ -8,6 +8,21 @@ import { getAllSeasons, seasonOf } from '@/lib/season'
 const GOALKEEPERS = ['Luka', 'Hirš']
 const SENATORS = ['Budo', 'Krzna', 'Ljubaj', 'Malta', 'Brka', 'Bobi', 'Lino']
 
+// "Vjerovali ili ne" — ekipne legende (polu-istinite fore)
+const VJEROVALI_ILI_NE = [
+  'Mark - igrač koji je karijeru izgradio na brutalnosti, naš Pepe. Zanimljivo je da ima više napravljenih faulova nego uspješnih dodavanja u 2026. Ostat će zabilježen njegov brutalan start "ala Joe Šimunić" na Filcu 10. srpnja 2026. — Filac se tjedan kasnije sam ozljedio od straha.',
+  'Malta - taktički mastermind, njegova poznata rečenica prije početka termina kojom poziva ekipu na dogovor najčešće označava poraz te ekipe.',
+  'Brkina poznata rečenica "Ajmo se dodavat" je i dalje neshvatljiva većini intelektualaca 21. stoljeća, pogotovo kad se uzme u obzir da Brka ima više dolazaka na termin nego dodavanja u 2026.',
+  'Zvone - igrač poteza, specifičan mindset koji voli matricu — a kada se ista zaigra, gotovo uvijek izgubi.',
+  'Dr. Volja — njegovo skidanje rukavica i prisilno završavanje termina je jedini takav događaj u povijesti ovog sporta.',
+  'Doda — fenomen, izgleda kao da krši zakone fizike: masa mu je ogromna, ali ubrzanje još veće. Newton bi tražio VAR.',
+  'Budo — miroljubivi igrač koji nije sklon zadirkivanju protivničkih ekipa. Osim kad pobjeđuje! Legenda kaže da kada igraju on i Kićo, protivnička ekipa u glavi čuje samo: "Nemilo trpanje!"',
+  'Broz — kralj zagrijavanja, može izvesti svaku fintu a nema nijedan uspješan dribling ove godine.',
+  'Ljubaj — sinonim za stabilnost, siguran ko švicarska banka s loptom. Zbog ozljede je u zadnje vrijeme u ulozi komentatora. Ostaje zabilježen po rečenici: "Pokušat će Filac". Dalje svi znaju što je bilo...',
+  'Krzna — kapetan i izbornik, poznat po omjeru upućenih i blokiranih udaraca i po uskliku na kraju utakmice: "Pobjeda!"',
+  'Hirš — specifičan golman, Dražen Ladić ga je označio kao svog nasljednika jer je jedini imao clean sheet sa više od 1 promila alkohola u krvi.',
+]
+
 const card = { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 14 }
 const cardTitle = { fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }
 
@@ -478,6 +493,13 @@ export default function Arhiva() {
     if (funLines.length > 0) {
       lines.push('🎭 ZA SMIJEH')
       funLines.forEach(l => lines.push('• ' + l))
+      lines.push('')
+    }
+
+    // 🤔 VJEROVALI ILI NE — ekipne legende
+    if (VJEROVALI_ILI_NE.length > 0) {
+      lines.push('🤔 VJEROVALI ILI NE')
+      VJEROVALI_ILI_NE.forEach(l => lines.push('• ' + l))
       lines.push('')
     }
 
