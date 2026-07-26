@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Legend, Tooltip } from 'chart.js'
+import { getCurrentSeason, seasonOf } from '@/lib/season'
 ChartJS.register(CategoryScale, LinearScale, BarElement, Legend, Tooltip)
 
 const s = {
@@ -34,11 +35,14 @@ export default function Statistika() {
 
   async function loadData() {
     const { data: ps } = await supabase.from('players').select('*').eq('active', true)
-    const { data: matches } = await supabase.from('matches').select('*').order('played_at')
+    const { data: allMatchesRaw } = await supabase.from('matches').select('*').order('played_at')
     const { data: matchPlayers } = await supabase.from('match_players').select('*')
     const { data: goals } = await supabase.from('goals').select('*')
 
-    if (!ps || !matches) { setLoading(false); return }
+    if (!ps || !allMatchesRaw) { setLoading(false); return }
+
+    const currentSeason = getCurrentSeason(allMatchesRaw)
+    const matches = allMatchesRaw.filter(m => seasonOf(m.played_at) === currentSeason)
 
     const stats = {}
     ps.forEach(p => { stats[p.id] = { id: p.id, name: p.name, played: 0, W: 0, D: 0, L: 0, goals: 0, form: [], fullForm: [] } })
