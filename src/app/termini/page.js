@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout'
+import { getCurrentSeason, seasonOf } from '@/lib/season'
 
 const badgeStyle = (winner) => {
   if (winner === 'crni') return { borderColor: '#166534', background: '#052e16', color: '#22c55e' }
@@ -28,10 +29,13 @@ export default function Termini() {
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
-    const { data: ms } = await supabase.from('matches').select('*').order('played_at', { ascending: false })
+    const { data: msRaw } = await supabase.from('matches').select('*').order('played_at', { ascending: false })
     const { data: ps } = await supabase.from('players').select('*')
     const { data: mps } = await supabase.from('match_players').select('*')
     const { data: goals } = await supabase.from('goals').select('*')
+
+    const currentSeason = getCurrentSeason(msRaw || [])
+    const ms = (msRaw || []).filter(m => seasonOf(m.played_at) === currentSeason)
 
     const playerMap = {}
     ;(ps || []).forEach(p => playerMap[p.id] = p.name)
