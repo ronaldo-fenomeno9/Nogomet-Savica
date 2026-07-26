@@ -293,16 +293,40 @@ export default function Arhiva() {
     if (d.senators && d.senators.length > 0) {
       lines.push('🎖️ SENATORI TERMINA')
       lines.push('Stari lavovi, temelj ekipe — oni bez kojih petak nije petak. Ali ni oni nisu bez mrlje:')
-      d.senators.forEach(sen => {
-        const roasts = []
-        if (sen.successPct < 45) roasts.push(`uspješnost od skromnih ${sen.successPct}% — godine očito uzimaju danak`)
-        if (sen.attendancePct < 60) roasts.push(`dolaznost od samo ${sen.attendancePct}% — sve češće bira kauč umjesto terena`)
-        if (sen.goals === 0) roasts.push(`nula golova cijelu sezonu — napadački balast, ali srcem uz ekipu`)
-        if (sen.maxL >= 3) roasts.push(`niz od ${sen.maxL} poraza zaredom — bilo je i crnih dana`)
-        if (sen.D >= 3) roasts.push(`čak ${sen.D} remija — majstor mirovnog sporazuma`)
-        const pick = roasts.length > 0 ? roasts[0] : `solidna sezona (${sen.W}-${sen.D}-${sen.L}), nema se što zamjeriti — za sada`
-        lines.push(`• ${sen.name}: ${pick}.`)
+
+      // Za svakog senatora odaberi NAJIZRAŽENIJU mrlju (prioritet po "težini")
+      const maxAtt = Math.max(...d.senators.map(s => s.attendancePct))
+      const roastFor = (sen) => {
+        const cands = []
+        // svaki kandidat: { key, weight, text }
+        if (sen.maxL >= 3) cands.push({ key: 'lstreak', weight: sen.maxL * 10, text: `nanizao je ${sen.maxL} poraza zaredom — bio je tu i period za zaborav` })
+        if (sen.attendancePct <= 45) cands.push({ key: 'att', weight: (60 - sen.attendancePct), text: `dolaznost od samo ${sen.attendancePct}% — sve češće bira kauč umjesto kopački` })
+        if (sen.successPct < 40) cands.push({ key: 'succ', weight: (50 - sen.successPct), text: `uspješnost od skromnih ${sen.successPct}% — godine očito uzimaju danak` })
+        if (sen.goals === 0) cands.push({ key: 'nogoals', weight: 8, text: `nula golova cijelu sezonu — napadački balast, ali srcem uz ekipu` })
+        if (sen.D >= 4) cands.push({ key: 'draws', weight: sen.D, text: `čak ${sen.D} remija — pravi diplomat terena` })
+        // odaberi najveću težinu
+        cands.sort((a, b) => b.weight - a.weight)
+        return cands[0] || { key: 'solid', weight: 0, text: `solidna sezona (${sen.W}-${sen.D}-${sen.L}), nema se što zamjeriti — za sada` }
+      }
+
+      const assigned = d.senators.map(sen => ({ name: sen.name, roast: roastFor(sen) }))
+
+      // Grupiraj one koji dijele isti tip mrlje S ISTIM tekstom
+      const used = new Set()
+      assigned.forEach((a, i) => {
+        if (used.has(i)) return
+        const sameText = assigned.filter((b, j) => !used.has(j) && b.roast.text === a.roast.text)
+        if (sameText.length >= 2) {
+          const names = sameText.map(x => x.name)
+          const namesStr = names.slice(0, -1).join(', ') + ' i ' + names[names.length - 1]
+          lines.push(`• ${namesStr}: ${a.roast.text} — u tome su izjednačeni.`)
+          sameText.forEach(x => used.add(assigned.indexOf(x)))
+        } else {
+          lines.push(`• ${a.name}: ${a.roast.text}.`)
+          used.add(i)
+        }
       })
+
       lines.push('Kapa dolje, senatori — ekipa stoji na vašim ramenima (i koljenima koja sve glasnije škripe). 😄')
       lines.push('')
     }
