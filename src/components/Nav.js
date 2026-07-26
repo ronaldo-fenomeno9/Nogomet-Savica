@@ -6,10 +6,11 @@ const row1 = [
   { href: '/ljestvica', label: '🏆 Ljestvica' },
   { href: '/statistika', label: '📊 Statistika' },
   { href: '/termini', label: '📅 Termini' },
+  { href: '/strijelci', label: '⚽ Strijelci' },
 ]
 const row2 = [
-  { href: '/strijelci', label: '⚽ Strijelci' },
   { href: '/obracuni', label: '💰 Obračuni' },
+  { href: '/arhiva', label: '📦 Arhiva' },
   { href: '/admin', label: '🔐 Admin' },
 ]
 
