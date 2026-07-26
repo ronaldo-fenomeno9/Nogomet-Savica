@@ -4,6 +4,10 @@ import { supabase } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout'
 import { getAllSeasons, seasonOf } from '@/lib/season'
 
+// Fiksni popisi (imena moraju točno odgovarati imenima u bazi)
+const GOALKEEPERS = ['Luka', 'Hirš']
+const SENATORS = ['Budo', 'Krzna', 'Ljubaj', 'Malta', 'Brka', 'Bobi', 'Lino']
+
 const card = { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 14 }
 const cardTitle = { fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }
 
@@ -58,6 +62,23 @@ export default function Arhiva() {
       else { [...black, ...white].forEach(p => apply(p, 'D')) }
     })
     sGoals.forEach(g => { if (stats[g.player_id]) stats[g.player_id].goals += g.count })
+
+    // Primljeni golovi po igraču (za golmane) — protivnikov rezultat u utakmicama koje je igrao
+    const concededMap = {}
+    sMatches.forEach(m => {
+      const black = matchPlayers.filter(mp => mp.match_id === m.id && mp.team === 'crni' && !mp.is_guest).map(mp => mp.player_id)
+      const white = matchPlayers.filter(mp => mp.match_id === m.id && mp.team === 'bijeli' && !mp.is_guest).map(mp => mp.player_id)
+      black.forEach(pid => {
+        if (!concededMap[pid]) concededMap[pid] = { conceded: 0, played: 0 }
+        concededMap[pid].conceded += m.score_white
+        concededMap[pid].played++
+      })
+      white.forEach(pid => {
+        if (!concededMap[pid]) concededMap[pid] = { conceded: 0, played: 0 }
+        concededMap[pid].conceded += m.score_black
+        concededMap[pid].played++
+      })
+    })
 
     const list = Object.values(stats)
       .map(s => ({
@@ -157,11 +178,24 @@ export default function Arhiva() {
     const dateFrom = sMatches.length ? sMatches[0].played_at : null
     const dateTo = sMatches.length ? sMatches[sMatches.length - 1].played_at : null
 
+    // Golmani — statistika iz fiksnog popisa
+    const goalkeepers = list
+      .filter(p => GOALKEEPERS.includes(p.name))
+      .map(p => {
+        const c = concededMap[p.id] || { conceded: 0, played: 0 }
+        return { ...p, conceded: c.conceded, concededAvg: c.played > 0 ? c.conceded / c.played : 0 }
+      })
+      .sort((a, b) => a.concededAvg - b.concededAvg)
+
+    // Senatori — iz fiksnog popisa
+    const senators = list.filter(p => SENATORS.includes(p.name))
+
     return {
       seasonYear, list: withStreaks, scorers, bestDuo, worstDuo,
       blackWins, whiteWins, draws, kitty, played: sMatches.length,
       highestScoring, biggestMargin, dateFrom, dateTo, firstGoalDate,
       gkCandidate, magicDuo, cursedDuo, drawKing, biggestDebtor,
+      goalkeepers, senators,
     }
   }
 
@@ -238,6 +272,40 @@ export default function Arhiva() {
     if (d.biggestMargin && d.biggestMargin.margin >= 2) lines.push(`• Najuvjerljivija pobjeda: ${d.biggestMargin.played_at}, razlika od ${d.biggestMargin.margin} gola (${d.biggestMargin.score_black}:${d.biggestMargin.score_white}).`)
     lines.push(`• U blagajnu je kroz kazne (porazi i remiji) skupljeno ${d.kitty.toFixed(2)} €.`)
     lines.push('')
+
+    // 🧤 GOLMANI
+    if (d.goalkeepers && d.goalkeepers.length > 0) {
+      lines.push('🧤 ČUVARI MREŽE')
+      lines.push('Bez njih nema nogometa — dvojica koja su najviše puta stala među stative:')
+      d.goalkeepers.forEach(gk => {
+        lines.push(`• ${gk.name}: primao je prosječno ${gk.concededAvg.toFixed(2)} gola po utakmici, a njegove ekipe imale su uspješnost od ${gk.successPct}% (${gk.W}-${gk.D}-${gk.L}).`)
+      })
+      if (d.goalkeepers.length >= 2) {
+        const best = d.goalkeepers[0]
+        const other = d.goalkeepers[1]
+        const bestBySuccess = [...d.goalkeepers].sort((a, b) => b.successPct - a.successPct)[0]
+        lines.push(`Manje primljenih golova imao je ${best.name}, ali kad se gleda pobjednički učinak, ${bestBySuccess.name} je taj čije ekipe češće slave. Prava golmanska škola! 🧤`)
+      }
+      lines.push('')
+    }
+
+    // 🎖️ SENATORI TERMINA
+    if (d.senators && d.senators.length > 0) {
+      lines.push('🎖️ SENATORI TERMINA')
+      lines.push('Stari lavovi, temelj ekipe — oni bez kojih petak nije petak. Ali ni oni nisu bez mrlje:')
+      d.senators.forEach(sen => {
+        const roasts = []
+        if (sen.successPct < 45) roasts.push(`uspješnost od skromnih ${sen.successPct}% — godine očito uzimaju danak`)
+        if (sen.attendancePct < 60) roasts.push(`dolaznost od samo ${sen.attendancePct}% — sve češće bira kauč umjesto terena`)
+        if (sen.goals === 0) roasts.push(`nula golova cijelu sezonu — napadački balast, ali srcem uz ekipu`)
+        if (sen.maxL >= 3) roasts.push(`niz od ${sen.maxL} poraza zaredom — bilo je i crnih dana`)
+        if (sen.D >= 3) roasts.push(`čak ${sen.D} remija — majstor mirovnog sporazuma`)
+        const pick = roasts.length > 0 ? roasts[0] : `solidna sezona (${sen.W}-${sen.D}-${sen.L}), nema se što zamjeriti — za sada`
+        lines.push(`• ${sen.name}: ${pick}.`)
+      })
+      lines.push('Kapa dolje, senatori — ekipa stoji na vašim ramenima (i koljenima koja sve glasnije škripe). 😄')
+      lines.push('')
+    }
 
     // 🎭 ZA SMIJEH
     const funLines = []
