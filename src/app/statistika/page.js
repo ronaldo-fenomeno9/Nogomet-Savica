@@ -66,6 +66,7 @@ export default function Statistika() {
     const playerList = Object.values(stats).map(s => ({
       ...s, points: s.W * 3 + s.D, amount: s.L * 3 + s.D * 2,
       attendancePct: matches.length > 0 ? s.played / matches.length * 100 : 0,
+      successPct: s.played > 0 ? Math.round((s.W * 3 + s.D) / (s.played * 3) * 100) : 0,
     }))
 
     const kitty = playerList.reduce((sum, s) => sum + s.amount, 0)
@@ -105,10 +106,10 @@ export default function Statistika() {
   const { playerList, kitty, totalMatches, blackWins, whiteWins, draws, duoBest, duoWorst } = data
 
   const top10att = [...playerList].sort((a, b) => b.attendancePct - a.attendancePct).slice(0, 10)
-  // Omjer pobjeda — samo igrači s min 50% dolaznosti, sortirano po W/played omjeru
+  // Sortirano po uspješnosti (bodovni %), samo igrači s min 50% dolaznosti
   const top10wl = [...playerList]
     .filter(p => p.attendancePct >= 50)
-    .sort((a, b) => (b.W / (b.played || 1)) - (a.W / (a.played || 1)))
+    .sort((a, b) => b.successPct - a.successPct)
     .slice(0, 10)
   const top5form = [...playerList].filter(p => p.form.length >= 5).map(p => ({ ...p, formScore: p.form.reduce((a, c) => a + (c === 'W' ? 3 : c === 'D' ? 1 : 0), 0) })).sort((a, b) => b.formScore - a.formScore).slice(0, 5)
   const worst5form = [...playerList].filter(p => p.form.length >= 5).map(p => ({ ...p, formScore: p.form.reduce((a, c) => a + (c === 'W' ? 3 : c === 'D' ? 1 : 0), 0) })).sort((a, b) => a.formScore - b.formScore).slice(0, 5)
