@@ -157,13 +157,12 @@ export default function Statistika() {
       </div>
 
       <div style={s.card}>
-        <div style={s.cardTitle}>Omjer pobjeda — Top 10 (min. 50% dolaznost)</div>
+        <div style={s.cardTitle}>Uspješnost — Top 10 (min. 50% dolaznost)</div>
         <Bar
           data={{ labels: top10wl.map(p => p.name), datasets: [
-            { label: 'Pobjede %', data: top10wl.map(p => Math.round(p.W / p.played * 100)), backgroundColor: '#22c55e', borderRadius: 4 },
-            { label: 'Porazi %', data: top10wl.map(p => Math.round(p.L / p.played * 100)), backgroundColor: '#ef4444', borderRadius: 4 }
+            { label: 'Uspješnost %', data: top10wl.map(p => p.successPct), backgroundColor: '#3dd6ff', borderRadius: 4 }
           ]}}
-          options={CHART_OPTS}
+          options={{ ...CHART_OPTS, plugins: { legend: { display: false } }, scales: { ...CHART_OPTS.scales, y: { ...CHART_OPTS.scales.y, max: 100 } } }}
         />
       </div>
 
