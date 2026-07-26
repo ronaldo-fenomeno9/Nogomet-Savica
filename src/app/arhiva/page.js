@@ -294,37 +294,80 @@ export default function Arhiva() {
       lines.push('🎖️ SENATORI TERMINA')
       lines.push('Stari lavovi, temelj ekipe — oni bez kojih petak nije petak. Ali ni oni nisu bez mrlje:')
 
-      // Za svakog senatora odaberi NAJIZRAŽENIJU mrlju (prioritet po "težini")
-      const maxAtt = Math.max(...d.senators.map(s => s.attendancePct))
+      // Za svakog senatora odaberi NAJIZRAŽENIJI tip mrlje
       const roastFor = (sen) => {
         const cands = []
-        // svaki kandidat: { key, weight, text }
-        if (sen.maxL >= 3) cands.push({ key: 'lstreak', weight: sen.maxL * 10, text: `nanizao je ${sen.maxL} poraza zaredom — bio je tu i period za zaborav` })
-        if (sen.attendancePct <= 45) cands.push({ key: 'att', weight: (60 - sen.attendancePct), text: `dolaznost od samo ${sen.attendancePct}% — sve češće bira kauč umjesto kopački` })
-        if (sen.successPct < 40) cands.push({ key: 'succ', weight: (50 - sen.successPct), text: `uspješnost od skromnih ${sen.successPct}% — godine očito uzimaju danak` })
-        if (sen.goals === 0) cands.push({ key: 'nogoals', weight: 8, text: `nula golova cijelu sezonu — napadački balast, ali srcem uz ekipu` })
-        if (sen.D >= 4) cands.push({ key: 'draws', weight: sen.D, text: `čak ${sen.D} remija — pravi diplomat terena` })
-        // odaberi najveću težinu
+        if (sen.maxL >= 3) cands.push({ type: 'lstreak', weight: sen.maxL * 10 })
+        if (sen.attendancePct <= 45) cands.push({ type: 'att', weight: (60 - sen.attendancePct) })
+        if (sen.successPct < 40) cands.push({ type: 'succ', weight: (50 - sen.successPct) })
+        if (sen.goals === 0) cands.push({ type: 'nogoals', weight: 8 })
+        if (sen.D >= 4) cands.push({ type: 'draws', weight: sen.D })
         cands.sort((a, b) => b.weight - a.weight)
-        return cands[0] || { key: 'solid', weight: 0, text: `solidna sezona (${sen.W}-${sen.D}-${sen.L}), nema se što zamjeriti — za sada` }
+        return cands[0]?.type || 'solid'
       }
 
-      const assigned = d.senators.map(sen => ({ name: sen.name, roast: roastFor(sen) }))
+      const assigned = d.senators.map(sen => ({ sen, type: roastFor(sen) }))
 
-      // Grupiraj one koji dijele isti tip mrlje S ISTIM tekstom
-      const used = new Set()
-      assigned.forEach((a, i) => {
-        if (used.has(i)) return
-        const sameText = assigned.filter((b, j) => !used.has(j) && b.roast.text === a.roast.text)
-        if (sameText.length >= 2) {
-          const names = sameText.map(x => x.name)
-          const namesStr = names.slice(0, -1).join(', ') + ' i ' + names[names.length - 1]
-          lines.push(`• ${namesStr}: ${a.roast.text} — u tome su izjednačeni.`)
-          sameText.forEach(x => used.add(assigned.indexOf(x)))
-        } else {
-          lines.push(`• ${a.name}: ${a.roast.text}.`)
-          used.add(i)
+      // Grupiraj po TIPU mrlje
+      const byType = {}
+      assigned.forEach(a => {
+        if (!byType[a.type]) byType[a.type] = []
+        byType[a.type].push(a.sen)
+      })
+
+      // Pomoćno — spoji imena "A, B i C"
+      const joinNames = (arr) => arr.length === 1 ? arr[0] : arr.slice(0, -1).join(', ') + ' i ' + arr[arr.length - 1]
+
+      // Sastavi rečenicu po tipu (jednina/množina)
+      const buildLine = (type, sens) => {
+        const many = sens.length > 1
+        const names = joinNames(sens.map(s => s.name))
+        switch (type) {
+          case 'lstreak': {
+            if (many) return `${names} ${'nanizali su poraze u seriji'} — bilo je i perioda za zaborav.`
+            const s = sens[0]
+            return `${s.name} je nanizao ${s.maxL} poraza zaredom — bio je tu i period za zaborav.`
+          }
+          case 'att': {
+            if (many) {
+              const parts = sens.map(s => `${s.name} sa ${s.attendancePct}%`)
+              return `${joinNames(parts)} — sve češće biraju kauč umjesto kopački. Je li to strah od mlađih lavova ili su godine napravile svoje?`
+            }
+            const s = sens[0]
+            return `${s.name}: dolaznost od samo ${s.attendancePct}% — sve češće bira kauč umjesto kopački.`
+          }
+          case 'succ': {
+            if (many) {
+              const parts = sens.map(s => `${s.name} (${s.successPct}%)`)
+              return `${joinNames(parts)} — uspješnost je skromna, godine očito uzimaju danak.`
+            }
+            const s = sens[0]
+            return `${s.name}: uspješnost od skromnih ${s.successPct}% — godine očito uzimaju danak.`
+          }
+          case 'nogoals': {
+            if (many) return `${names} — nijedan gol cijelu sezonu, napadački balast ali srcem uz ekipu.`
+            return `${sens[0].name}: nula golova cijelu sezonu — napadački balast, ali srcem uz ekipu.`
+          }
+          case 'draws': {
+            if (many) {
+              const parts = sens.map(s => `${s.name} (${s.D})`)
+              return `${joinNames(parts)} — kraljevi remija, pravi diplomati terena.`
+            }
+            return `${sens[0].name}: čak ${sens[0].D} remija — pravi diplomat terena.`
+          }
+          default: {
+            if (many) return `${names} — solidne sezone, nema se što zamjeriti. Za sada.`
+            const s = sens[0]
+            return `${s.name}: solidna sezona (${s.W}-${s.D}-${s.L}), nema se što zamjeriti — za sada.`
+          }
         }
+      }
+
+      // Ispiši grupe (redoslijedom kako su se prvi put pojavile)
+      const seenTypes = []
+      assigned.forEach(a => { if (!seenTypes.includes(a.type)) seenTypes.push(a.type) })
+      seenTypes.forEach(type => {
+        lines.push('• ' + buildLine(type, byType[type]))
       })
 
       lines.push('Kapa dolje, senatori — ekipa stoji na vašim ramenima (i koljenima koja sve glasnije škripe). 😄')
