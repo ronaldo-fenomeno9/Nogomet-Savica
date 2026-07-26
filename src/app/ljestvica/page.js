@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout'
+import { getCurrentSeason, seasonOf } from '@/lib/season'
 
 function FormDot({ r }) {
   const bg = r === 'W' ? 'var(--win)' : r === 'D' ? 'var(--draw)' : 'var(--loss)'
@@ -41,11 +42,15 @@ export default function Ljestvica() {
 
   async function loadData() {
     const { data: ps } = await supabase.from('players').select('*').eq('active', true)
-    const { data: matches } = await supabase.from('matches').select('*').order('played_at')
+    const { data: allMatchesRaw } = await supabase.from('matches').select('*').order('played_at')
     const { data: matchPlayers } = await supabase.from('match_players').select('*')
     const { data: goals } = await supabase.from('goals').select('*')
 
-    if (!ps || !matches) { setLoading(false); return }
+    if (!ps || !allMatchesRaw) { setLoading(false); return }
+
+    // Filtriraj na tekuću sezonu
+    const currentSeason = getCurrentSeason(allMatchesRaw)
+    const matches = allMatchesRaw.filter(m => seasonOf(m.played_at) === currentSeason)
 
     const pMap = {}
     ps.forEach(p => { pMap[p.id] = p.name })
@@ -77,7 +82,7 @@ export default function Ljestvica() {
       points: s.W * 3 + s.D,
       amount: s.L * 3 + s.D * 2,
       attendancePct: matches.length > 0 ? Math.round(s.played / matches.length * 100) : 0,
-      winPct: s.played > 0 ? Math.round(s.W / s.played * 100) : 0,
+      winPct: s.played > 0 ? Math.round((s.W * 3 + s.D) / (s.played * 3) * 100) : 0,
     })).sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points
       if (a.played !== b.played) return a.played - b.played
