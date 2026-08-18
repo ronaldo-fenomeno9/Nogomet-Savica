@@ -10,9 +10,23 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase baze
+      - name: Simuliraj posjetitelja koji pregledava par tabova
         run: |
-          curl -s "https://tjstyxrqmqenfxdnyymy.supabase.co/rest/v1/players?select=id&limit=1" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
-          echo "Ping poslan!"
+          BASE_URL="https://nogomet-savica.vercel.app"
+          ALL_PAGES=("ljestvica" "statistika" "termini" "strijelci" "obracuni" "arhiva")
+
+          # Nasumično odaberi 2-4 stranice za "posjetu" danas
+          COUNT=$(( (RANDOM % 3) + 2 ))  # broj 2,3 ili 4
+          SHUFFLED=($(printf "%s\n" "${ALL_PAGES[@]}" | shuf))
+
+          echo "Danas 'posjećujem' $COUNT stranica:"
+
+          for i in $(seq 0 $((COUNT - 1))); do
+            PAGE="${SHUFFLED[$i]}"
+            echo "→ Otvaram /$PAGE"
+            curl -s -o /dev/null -w "  Status: %{http_code}, vrijeme: %{time_total}s\n" "$BASE_URL/$PAGE"
+            # kratka pauza da izgleda prirodnije (par sekundi između "klikova")
+            sleep $(( (RANDOM % 5) + 2 ))
+          done
+
+          echo "Simulacija posjete gotova! ✅"
