@@ -2,15 +2,29 @@ name: Keep Supabase Alive
 
 on:
   schedule:
-    # Svaki dan u 08:00 UTC (10:00 po hrvatskom ljetnom vremenu)
-    - cron: '0 8 * * *'
+    # Pokreće se 8x dnevno (svaka 3 sata); svaki put ima šansu da se "presk oči"
+    # pa stvarni broj pingova po danu varira (obično 4-8x)
+    - cron: '0 5,8,11,14,17,20,23,2 * * *'
   workflow_dispatch: # omogućuje ručno pokretanje iz GitHub sučelja
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
+      - name: Nasumično odluči hoće li se danas ovaj ping izvršiti (~70% šanse)
+        id: decide
+        run: |
+          ROLL=$(( RANDOM % 100 ))
+          if [ $ROLL -lt 70 ]; then
+            echo "run=yes" >> $GITHUB_OUTPUT
+            echo "Kocka je pala na $ROLL — ping se izvršava."
+          else
+            echo "run=no" >> $GITHUB_OUTPUT
+            echo "Kocka je pala na $ROLL — preskačem ovaj termin (simulacija da nitko baš svaki put ne 'svrati')."
+          fi
+
       - name: Simuliraj posjetitelja koji pregledava par tabova (stvarni pozivi bazi)
+        if: steps.decide.outputs.run == 'yes'
         run: |
           URL="https://tjstyxrqmqenfxdnyymy.supabase.co/rest/v1"
           KEY="${{ secrets.SUPABASE_ANON_KEY }}"
@@ -25,10 +39,10 @@ jobs:
           PAGES[arhiva]="players,matches,match_players,goals"
 
           ALL_PAGES=(ljestvica statistika termini strijelci obracuni arhiva)
-          COUNT=$(( (RANDOM % 3) + 2 ))  # 2, 3 ili 4 stranice
+          COUNT=$(( (RANDOM % 3) + 1 ))  # 1, 2 ili 3 stranice po pokretanju
           SHUFFLED=($(printf "%s\n" "${ALL_PAGES[@]}" | shuf))
 
-          echo "Danas 'posjećujem' $COUNT stranica:"
+          echo "Ovaj put 'posjećujem' $COUNT stranica:"
 
           for i in $(seq 0 $((COUNT - 1))); do
             PAGE="${SHUFFLED[$i]}"
@@ -40,7 +54,11 @@ jobs:
                 -H "apikey: $KEY" \
                 -H "Authorization: Bearer $KEY"
             done
-            sleep $(( (RANDOM % 5) + 2 ))
+            sleep $(( (RANDOM % 4) + 1 ))
           done
 
           echo "Simulacija posjete gotova! ✅"
+
+      - name: Preskočeno
+        if: steps.decide.outputs.run == 'no'
+        run: echo "Ovaj termin je preskočen radi prirodnijeg uzorka aktivnosti."
