@@ -10,13 +10,22 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Simuliraj posjetitelja koji pregledava par tabova
+      - name: Simuliraj posjetitelja koji pregledava par tabova (stvarni pozivi bazi)
         run: |
-          BASE_URL="https://nogomet-savica.vercel.app"
-          ALL_PAGES=("ljestvica" "statistika" "termini" "strijelci" "obracuni" "arhiva")
+          URL="https://tjstyxrqmqenfxdnyymy.supabase.co/rest/v1"
+          KEY="${{ secrets.SUPABASE_ANON_KEY }}"
 
-          # Nasumično odaberi 2-4 stranice za "posjetu" danas
-          COUNT=$(( (RANDOM % 3) + 2 ))  # broj 2,3 ili 4
+          # Svaki "tab" = koje tablice ta stranica stvarno čita
+          declare -A PAGES
+          PAGES[ljestvica]="players,matches,match_players"
+          PAGES[statistika]="players,matches,match_players,goals"
+          PAGES[termini]="matches,players,match_players,goals"
+          PAGES[strijelci]="players,matches,goals,match_players"
+          PAGES[obracuni]="players,matches,match_players,kitty_transactions"
+          PAGES[arhiva]="players,matches,match_players,goals"
+
+          ALL_PAGES=(ljestvica statistika termini strijelci obracuni arhiva)
+          COUNT=$(( (RANDOM % 3) + 2 ))  # 2, 3 ili 4 stranice
           SHUFFLED=($(printf "%s\n" "${ALL_PAGES[@]}" | shuf))
 
           echo "Danas 'posjećujem' $COUNT stranica:"
@@ -24,8 +33,13 @@ jobs:
           for i in $(seq 0 $((COUNT - 1))); do
             PAGE="${SHUFFLED[$i]}"
             echo "→ Otvaram /$PAGE"
-            curl -s -o /dev/null -w "  Status: %{http_code}, vrijeme: %{time_total}s\n" "$BASE_URL/$PAGE"
-            # kratka pauza da izgleda prirodnije (par sekundi između "klikova")
+            IFS=',' read -ra TABLES <<< "${PAGES[$PAGE]}"
+            for TABLE in "${TABLES[@]}"; do
+              curl -s -o /dev/null -w "    $TABLE -> %{http_code}\n" \
+                "$URL/$TABLE?select=*&limit=5" \
+                -H "apikey: $KEY" \
+                -H "Authorization: Bearer $KEY"
+            done
             sleep $(( (RANDOM % 5) + 2 ))
           done
 
