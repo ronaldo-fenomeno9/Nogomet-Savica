@@ -59,7 +59,7 @@ export default function Nav() {
         alignItems: 'center',
         gap: 8,
       }}>
-        ⚽ HNB Savica
+        ⚽ HNB nogomet
       </div>
       <TabRow tabs={row1} path={path} />
       <TabRow tabs={row2} path={path} />
